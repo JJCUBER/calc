@@ -37,7 +37,7 @@ calc.exe
 
 ***
 # Info about numbers and constants
-- numbers (`LDBL_MIN` to `LDBL_MAX`) constants (`e`, `pi`, `golden ratio` \[unsure how I should abbreviate this, maybe `golden` and/or `gr`?], \[probably won't support `i`])
+- numbers (`LDBL_MIN` to `LDBL_MAX`) constants (`e`, `pi`, `phi`, \[probably won't support `i`])
 
 
 ***

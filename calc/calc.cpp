@@ -1,5 +1,30 @@
 ﻿#include "calc.h"
 
+void printParsed(std::vector<Token*>& tokens)
+{
+    std::string parsed;
+    for(Token* t : tokens)
+    {
+        switch(t->tokenType)
+        {
+        case Token::TokenType::Number:
+            parsed += std::to_string(((Number*)t)->n);
+            break;
+        case Token::TokenType::Operator:
+            parsed.push_back(((Operator*)t)->symbol);
+            break;
+        case Token::TokenType::Grouping:
+            parsed.push_back(((Grouping*)t)->isOpen ? '(' : ')');
+            break;
+        case Token::TokenType::Function:
+            parsed += ((Function*)t)->name;
+            break;
+        }
+        parsed.push_back('_');
+    }
+    std::cout << parsed << "\n";
+}
+
 int main(int argc, char* argv[])
 {
     std::string equation;
@@ -61,28 +86,36 @@ int main(int argc, char* argv[])
     if (!token.empty())
         tokens.push_back(isNumber ? (Token*)new Number{std::stold(token)} : new Function{token});
 
-    // Testing to ensure that I am parsing correctly
-    std::string parsed;
+    // Printing to ensure that parsing is being done correctly
+    printParsed(tokens);
+
+    // Get number of groupings aka parenthesis to prepend and append
+    int min{}, ct{};
     for(Token* t : tokens)
     {
-        switch(t->tokenType)
-        {
-        case Token::TokenType::Number:
-            parsed += std::to_string(((Number*)t)->n);
-            break;
-        case Token::TokenType::Operator:
-            parsed.push_back(((Operator*)t)->symbol);
-            break;
-        case Token::TokenType::Grouping:
-            parsed.push_back(((Grouping*)t)->isOpen ? '(' : ')');
-            break;
-        case Token::TokenType::Function:
-            parsed += ((Function*)t)->name;
-            break;
-        }
-        parsed.push_back('_');
+        if (t->tokenType != Token::TokenType::Grouping)
+            continue;
+        ct += ((Grouping*)t)->isOpen ? 1 : -1;
+        min = std::min(ct, min);
     }
-    std::cout << parsed << "\n";
+
+    // Prepend and append proper groupings if needed
+    if (min < 0)
+    {
+        for (int i = 0; i < -min; i++)
+            tokens.insert(tokens.begin(), new Grouping('('));
+        std::cout << "Warning: prepended " << -min << " '('\n";
+    }
+    if(ct - min > 0)
+    {
+        for (int i = 0; i < ct - min; i++)
+            tokens.push_back(new Grouping(')'));
+        std::cout << "Warning: appended " << ct - min << " ')'\n";
+    }
+
+    // Printing to ensure groupings were added correctly
+    printParsed(tokens);
+
 
     return 0;
 }
