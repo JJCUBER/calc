@@ -4,7 +4,8 @@
 
 struct Grouping : Token
 {
+    char symbol;
     bool isOpen;
 
-    Grouping(char symbol) : Token{TokenType::Grouping}, isOpen{symbol == '('} {}
+    Grouping(char symbol) : Token{TokenType::Grouping}, symbol{symbol}, isOpen{ symbol == '(' } {}
 };
