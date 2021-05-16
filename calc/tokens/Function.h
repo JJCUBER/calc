@@ -1,8 +1,9 @@
 #pragma once
 
-#include "Token.h"
 #include <string>
 #include <utility>
+
+#include "Token.h"
 
 struct Function : Token
 {

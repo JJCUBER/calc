@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Token.h"
 
 struct Number : Token
