@@ -16,6 +16,20 @@ cd calc\Debug
 calc.exe
 ```
 
+<br></br>
+### To build for release, replace last line of [this](#how-to-build) with:
+```
+cmake --build . --config Release
+```
+#### Should be located here:
+```
+cd calc\Release
+calc.exe
+```
+
+<br></br>
+*I believe that `cmake --build . --config Debug` would have the same effect as `cmake --build .`*
+
 ***
 # \[This isn't much of an actual README at the moment]
 
