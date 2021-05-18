@@ -1,5 +1,5 @@
-﻿#include <iostream>
-#include <vector>
+﻿// #include <iostream>
+// #include <vector>
 
 #include "tokens/Token.h"
 #include "tokens/Number.h"
@@ -12,6 +12,7 @@ void initialParse(std::string& equation, std::vector<Token*>& tokens);
 void printParsed(const std::vector<Token*>& tokens);
 int checkForMalformedInput(const std::vector<Token*>& tokens);
 int sanitizeEquation(std::vector<Token*>& tokens);
+void addMissingGroupings(std::vector<Token*>& tokens);
 
 int main(int argc, char* argv[])
 {
@@ -35,36 +36,6 @@ int main(int argc, char* argv[])
 
     // Printing to ensure that parsing is being done correctly
     printParsed(tokens);
-
-    // Should be done after initial checks; I can't see any cases currently which would pass the checks when they shouldn't by doing this after (something like '(1+' would still be invalid without inserting the ')', since the equation would end with an operator other than '!')
-    /*
-    // Get number of groupings, aka parenthesis to prepend and append
-    int min{}, ct{};
-    for (Token* t : tokens)
-    {
-        if (t->tokenType != Token::TokenType::Grouping)
-            continue;
-        ct += ((Grouping*)t)->isOpen ? 1 : -1;
-        min = std::min(ct, min);
-    }
-
-    // Prepend and append proper groupings if needed
-    if (min < 0)
-    {
-        for (int i = 0; i < -min; i++)
-            tokens.insert(tokens.begin(), new Grouping('('));
-        std::cout << "Warning: prepended " << -min << " '('\n";
-    }
-    if (ct - min > 0)
-    {
-        for (int i = 0; i < ct - min; i++)
-            tokens.push_back(new Grouping(')'));
-        std::cout << "Warning: appended " << ct - min << " ')'\n";
-    }
-
-    // Printing to ensure groupings were added correctly
-    printParsed(tokens);
-    */
 
 
     // [Malformed Input Checks]
@@ -234,12 +205,80 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
 int sanitizeEquation(std::vector<Token*>& tokens)
 {
     // 1) parse function names and constants (if they aren't recognized, give the user an error and return)
+    //   - this includes seeing if arc comes right before a trig function or h comes right after, should probably also handle ^-1 for trig functions and convert ^n or ^(n...) to some sort of function if it is being applied to a function
+    for(int i = 0; i < tokens.size(); i++)
+    {
+        if (tokens[i]->tokenType != Token::TokenType::Function)
+            continue;
+        std::cout << i << '\n';
+        if (Function::splitFunctions(tokens, i))
+            return -1;
+        std::cout << '\n' << i << '\n';
+    }
+
+    // Ensure functions were split properly
+    printParsed(tokens);
+
+    // Might want to insert *'s before this and function groupings after?
+    // Should probably also handle trig functions before this, like combining arc and ^-1 with the trig function
+    for(int i = 0; i < tokens.size(); i++)
+    {
+        if (tokens[i]->tokenType != Token::TokenType::Function)
+            continue;
+        const long double val = Number::getConstant(((Function*)tokens[i])->name);
+        if (!val)
+            continue;
+        delete tokens[i];
+        tokens[i] = new Number{val};
+    }
+
+    // Ensure constants were replaced properly
+    printParsed(tokens);
+
+
     // 2) add groupings following functions if they aren't there
     // 3) insert omitted *'s between numbers, groupings, and factorials ('[n!f](', ')[n!f]', ')(', 'ff', and '[n!f][n!f]' (except can't have '[n][n]'; also, if I decide to do the step about inserting groupings after functions before this, then I wouldn't need to include that in th checks, just groupings)
     // 4) convert consecutive +---+--... to one symbol
     // 5) if there is anything of the nature [*/][+-], make the [+-] apply to the following number, or if it is a function/grouping, makes some sort of sub() function in the event of a '-' and do nothing in the event of a '+'
     // 6) prepend and append missing groupings (not sure when the optimal time would be to do this; could also decouple when I find the amount to be added from when I actually do so so that they aren't in the way of the other "sanitizers")
+    // 7) convert ! to fact()
+
+    // I've been thinking; I might want each function to have its own member vector of Token*'s, though it might take around the same amount of code and complexity to do it either way (with or without functions having their own member vector)
 
     return 0;
+}
+
+// Maybe move this to Grouping.h?
+void addMissingGroupings(std::vector<Token*>& tokens)
+{
+    // Should be done after initial checks; I can't see any cases currently which would pass the checks when they shouldn't by doing this after (something like '(1+' would still be invalid without inserting the ')', since the equation would end with an operator other than '!')
+
+
+    // Get number of groupings, aka parenthesis to prepend and append
+    int min{}, ct{};
+    for (Token* t : tokens)
+    {
+        if (t->tokenType != Token::TokenType::Grouping)
+            continue;
+        ct += ((Grouping*)t)->isOpen ? 1 : -1;
+        min = std::min(ct, min);
+    }
+
+    // Prepend and append proper groupings if needed
+    if (min < 0)
+    {
+        for (int i = 0; i < -min; i++)
+            tokens.insert(tokens.begin(), new Grouping('('));
+        std::cout << "Warning: prepended " << -min << " '('\n";
+    }
+    if (ct - min > 0)
+    {
+        for (int i = 0; i < ct - min; i++)
+            tokens.push_back(new Grouping(')'));
+        std::cout << "Warning: appended " << ct - min << " ')'\n";
+    }
+
+    // Printing to ensure groupings were added correctly
+    // printParsed(tokens);
 }
 

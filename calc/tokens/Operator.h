@@ -1,6 +1,7 @@
 #pragma once
 
 // #include <unordered_map>
+#include <limits>
 
 #include "Token.h"
 
@@ -28,7 +29,8 @@ struct Operator : Token
         case '%':
             return 5;
         // Not entirely sure how I want to handle default as of yet, maybe return -1 instead?
-        default: return INT_MAX;
+        default:
+            return std::numeric_limits<int>::max();
         }
     }
 };
