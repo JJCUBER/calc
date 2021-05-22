@@ -18,15 +18,78 @@ class Function : public Token
 {
     struct Substr
     {
+        // iPos is input pos
+        // nPos + len are names pos + names len
         int iPos, nPos, len;
         Substr(int iPos, int nPos, int len = 1) : iPos{iPos}, nPos{nPos}, len{len} {}
+    };
+
+    // A trie might be overkill/too much overhead, unsure as of yet - update: it seems like it is just over 2x faster with the items that I tested it with
+    struct Trie
+    {
+        int nPos, len;
+        Trie* children[26];
+
+        Trie() : nPos{-1}, len{-1}, children{} {}
+        template<size_t N>
+        Trie(const std::string (&names)[N]) : Trie{}
+        {
+            for (int n = 0; n < N; n++)
+                insert(names[n], n, names[n].size());
+        }
+
+        void insert(const std::string& s, int nPos, int len)
+        {
+            Trie* curr{this};
+            for (char c : s)
+            {
+                Trie*& next{curr->children[c - 'a']};
+                if (!next)
+                    next = new Trie{};
+                curr = next;
+            }
+            curr->nPos = nPos;
+            curr->len = len;
+        }
+
+        /*
+        int findWord(const std::string& s, int pos, int size)
+        {
+            Trie* curr{this};
+            int largest{-1};
+            while (pos < size)
+            {
+                curr = curr->children[s[pos++] - 'a'];
+                if (!curr)
+                    break;
+                if (curr->nPos != -1)
+                    largest = curr->nPos;
+            }
+            // return curr->nPos;
+            // return curr->nPos != -1 ? curr->nPos : largest;
+            return largest;
+        }
+        */
+
+        void findAllWords(const std::string& s, int pos, int size, std::vector<Substr>& output)
+        {
+            int iPos{pos};
+            Trie* curr{this};
+            while (pos < size)
+            {
+                curr = curr->children[s[pos++] - 'a'];
+                if (!curr)
+                    break;
+                if (curr->nPos != -1)
+                    output.emplace_back(iPos, curr->nPos, curr->len);
+            }
+        }
     };
     
 public:
     std::string name;
 
     Function(std::string name) : Token{TokenType::Function}, name{std::move(name)} {}
-
 
     static int splitFunctions(std::vector<Token*>& tokens, int& pos)
     {
@@ -51,12 +114,30 @@ public:
         static const std::string names[]{"e", "pi", "phi", "arc", "h", "sin", "cos", "tan", "csc", "sec", "cot", "floor", "ceil", "fact", "exp", "ln", "log", "sqrt", "cbrt"};
         std::string input{((Function*)tokens[pos])->name};
 
+        static Trie trie{names};
+        // for (int n = 0; n < std::size(names); n++)
+        //     trie.insert(names[n], n, names[n].size());
+
+        std::vector<Substr> occurrences;
+        int size(input.size());
+        for (int i = 0; i < size; i++)
+            trie.findAllWords(input, i, size, occurrences);
+
+        // Prints out all occurrences visually in the correct spot (by padding with spaces)
+        std::cout << input << '\n';
+        for (const Substr& s : occurrences)
+            std::cout << (s.iPos ? std::string(s.iPos, ' ') : "") << names[s.nPos] << '\n';
+        std::cout << "\n\n";
+
+        // above code is an alternative for the big block commented out a couple lines below
+
         // Instead of deleting and removing, I can reuse this Function Token
         /*
         delete tokens[pos];
         tokens.erase(tokens.begin() + pos);
         */
 
+        /*
         // Finds all occurrences of matching substrings
         // vector<tuple<int, int, int>> potential; // start pos in input, pos in names, current matching length
         // vector<pair<int, int>> occurrences; // start pos in input, pos in names
@@ -67,10 +148,10 @@ public:
             for (int j = 0; j < potential.size(); j++)
             {
 
-                // if(names[std::get<1>(potential[j])][std::get<2>(potential[j])++] != input[i])
+                // if (names[std::get<1>(potential[j])][std::get<2>(potential[j])++] != input[i])
                 if (names[potential[j].nPos][potential[j].len++] != input[i])
                     potential.erase(potential.begin() + j--);
-                // else if(std::get<2>(potential[j]) == names[std::get<1>(potential[j])].size())
+                // else if (std::get<2>(potential[j]) == names[std::get<1>(potential[j])].size())
                 else if (potential[j].len == names[potential[j].nPos].size())
                 {
                     // occurrences.push_back(std::make_pair(std::get<0>(potential[j]), std::get<1>(potential[j])));
@@ -80,7 +161,7 @@ public:
                     // occurrences.insert(occurrences.end(), std::make_move_iterator(potential.begin() + j))
                 }
                 // I moved this to be above ^ so that I wouldn't need to do an extra pass over the 'potential' vector to ensure that none of them are "complete" occurrences
-                // else if(names[std::get<1>(potential[j])][std::get<2>(potential[j])++] != input[i])
+                // else if (names[std::get<1>(potential[j])][std::get<2>(potential[j])++] != input[i])
                     // potential.erase(potential.begin() + j--);
             }
             // for (int j = 0; j < names.size(); j++)
@@ -100,12 +181,12 @@ public:
 
         // Prints out all occurrences visually in the correct spot (by padding with spaces)
         std::cout << input << '\n';
-        // for(auto& p : occurrences)
+        // for (auto& p : occurrences)
         for (const Substr& s : occurrences)
             //     cout << (p.first ? string(p.first, ' ') : "") << names[p.second] << '\n';
             std::cout << (s.iPos ? std::string(s.iPos, ' ') : "") << names[s.nPos] << '\n';
         // Prints out incomplete occurrences at the end
-        // for(auto& t : potential)
+        // for (auto& t : potential)
         for (const Substr& s : potential)
         {
             // auto first = std::get<0>(t), second = std::get<1>(t), third = std::get<2>(t);
@@ -114,47 +195,52 @@ public:
         }
 
         std::cout << "\n\n";
+        */
+
+
+
+
 
         // Removes any overlapping substrings, opting for the largest ones
         // *** Flaw with this code is mentioned earlier! ***
         /*
         vector<pair<int, int>> final{occurrences.back()};
-        for(int i = occurrences.size() - 2; i >= 0; i--)
+        for (int i = occurrences.size() - 2; i >= 0; i--)
         {
             bool shouldAdd{true};
-            // while(shouldAdd && !final.empty() && occurrences[i].first <= final.back().first && occurrences[i].first + names[occurrences[i].second].size() - 1 >= final.back().first)
-            // while(shouldAdd && !final.empty() &&
+            // while (shouldAdd && !final.empty() && occurrences[i].first <= final.back().first && occurrences[i].first + names[occurrences[i].second].size() - 1 >= final.back().first)
+            // while (shouldAdd && !final.empty() &&
             //      (occurrences[i].first >= final.back().first && occurrences[i].first <= final.back().first + names[final.back().second].size() - 1 ||
             //       occurrences[i].first + names[occurrences[i].second].size() - 1 >= final.back().first && occurrences[i].first + names[occurrences[i].second].size() - 1 <= final.back().first + names[final.back().second].size() - 1))
-            while(shouldAdd && !final.empty())
+            while (shouldAdd && !final.empty())
             {
                 int currStart = occurrences[i].first, currEnd = currStart + names[occurrences[i].second].size() - 1;
                 int backStart = final.back().first, backEnd = backStart + names[final.back().second].size() - 1;
-                // if(!(currStart >= backStart && currStart <= backEnd || currEnd >= backStart && currEnd <= backEnd))
-                if((currStart < backStart || currStart > backEnd) && (currEnd < backStart || currEnd > backEnd))
+                // if (!(currStart >= backStart && currStart <= backEnd || currEnd >= backStart && currEnd <= backEnd))
+                if ((currStart < backStart || currStart > backEnd) && (currEnd < backStart || currEnd > backEnd))
                     break;
 
                 // shouldAdd = false;
                 shouldAdd = names[occurrences[i].second].size() > names[final.back().second].size();
-                // if(names[occurrences[i].second].size() > names[final.back().second].size())
-                if(shouldAdd)
+                // if (names[occurrences[i].second].size() > names[final.back().second].size())
+                if (shouldAdd)
                     // final.back() = occurrences[i];
                     final.pop_back();
             }
             // else
-            if(shouldAdd)
+            if (shouldAdd)
                 final.push_back(occurrences[i]);
         }
 
         cout << input << '\n';
-        for(auto& p : final)
+        for (auto& p : final)
             cout << (p.first ? string(p.first, ' ') : "") << names[p.second] << '\n';
         */
 
         std::sort(occurrences.rbegin(), occurrences.rend(), [](const Substr& s1, const Substr& s2) { return s1.len == s2.len ? s1.iPos < s2.iPos : s1.len < s2.len; });
 
         // cout << input << '\n';
-        // for(const Substr& s : occurrences)
+        // for (const Substr& s : occurrences)
         //     cout << (s.iPos ? string(s.iPos, ' ') : "") << names[s.nPos] << '\n';
 
         auto haveOverlap = [&](const Substr& s1, const Substr& s2)
@@ -181,7 +267,7 @@ public:
                 std::cout << (occurrences[i].iPos ? std::string(occurrences[i].iPos, ' ') : "") << names[occurrences[i].nPos] << '\n';
             /*
             auto it = set.end();
-            if(it->iPos == occurrences[i].iPos && overlapLambda(*(--it), *set.end()))
+            if (it->iPos == occurrences[i].iPos && overlapLambda(*(--it), *set.end()))
                 // set.erase(--set.end());
                 set.erase(it);
             */

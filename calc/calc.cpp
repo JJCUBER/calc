@@ -7,6 +7,8 @@
 #include "tokens/Grouping.h"
 #include "tokens/Function.h"
 
+// #include <chrono>
+
 std::string getInput(int argc, char* argv[]);
 void initialParse(std::string& equation, std::vector<Token*>& tokens);
 void printParsed(const std::vector<Token*>& tokens);
@@ -14,8 +16,14 @@ int checkForMalformedInput(const std::vector<Token*>& tokens);
 int sanitizeEquation(std::vector<Token*>& tokens);
 void addMissingGroupings(std::vector<Token*>& tokens);
 
+// void testTime();
+
 int main(int argc, char* argv[])
 {
+    // Profiling
+    // testTime();
+
+
     // [Get input]
 
     std::string equation = getInput(argc, argv);
@@ -24,6 +32,7 @@ int main(int argc, char* argv[])
     // Ensure there is an input/equation
     if (equation.empty())
     {
+        // Instead of giving the user an error when there are no arguments, I might want to go into a mode where multiple equations can be input seperately until the user is done.  With this, I could also add syntax for "[A-Za-z] = ..." (storing results into variables), along with a special keyword for the previous output, like "prev" (there are probably better ones).
         std::cout << "Missing equation - proper format: 'calc \"{equation}\"'";
         return 0;
     }
@@ -172,7 +181,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
         {
             Operator *prevOp = (Operator*)tokens[i - 1], *currOp = (Operator*)tokens[i];
             // if(prevOp->orderOfOp == 1 && currOp->orderOfOp != 1)
-            if(prevOp->symbol != '!' && currOp->orderOfOp != 1)
+            if (prevOp->symbol != '!' && currOp->orderOfOp != 1)
             {
                 std::cout << "Error: Malformed Input - input has consecutive operators other than '![_]' or '[_][+-]': '" << prevOp->symbol << currOp->symbol << '\'';
                 return -1;
@@ -206,7 +215,7 @@ int sanitizeEquation(std::vector<Token*>& tokens)
 {
     // 1) parse function names and constants (if they aren't recognized, give the user an error and return)
     //   - this includes seeing if arc comes right before a trig function or h comes right after, should probably also handle ^-1 for trig functions and convert ^n or ^(n...) to some sort of function if it is being applied to a function
-    for(int i = 0; i < tokens.size(); i++)
+    for (int i = 0; i < tokens.size(); i++)
     {
         if (tokens[i]->tokenType != Token::TokenType::Function)
             continue;
@@ -221,7 +230,7 @@ int sanitizeEquation(std::vector<Token*>& tokens)
 
     // Might want to insert *'s before this and function groupings after?
     // Should probably also handle trig functions before this, like combining arc and ^-1 with the trig function
-    for(int i = 0; i < tokens.size(); i++)
+    for (int i = 0; i < tokens.size(); i++)
     {
         if (tokens[i]->tokenType != Token::TokenType::Function)
             continue;
@@ -281,4 +290,46 @@ void addMissingGroupings(std::vector<Token*>& tokens)
     // Printing to ensure groupings were added correctly
     // printParsed(tokens);
 }
+
+/* It seems like tries are just over 2x faster than my method
+// Trie: ~155ms avg
+// Original: ~340ms avg
+void testTime()
+{
+    // std::vector<Token*> original{new Function{"flooreeeeefloor*1+7floorlnceilfloor*3^ceile-sincossinsincostanearch+arcsinhpiphi"}}, v{original};
+    std::string equation{"flooreeeeefloor*1+7floorlnceilfloor*3^ceile-sincossinsincostanearch+arcsinhpiphi"};
+    std::vector<Token*> v;
+    initialParse(equation, v);
+    int discard{};
+
+    // Temporary and just meant to get the trie constructed
+    Function::splitFunctions(v, discard);
+    printParsed(v);
+
+    for (Token* t : v)
+        delete t;
+    v.clear();
+
+    auto start{std::chrono::high_resolution_clock::now()};
+    for(int i = 0; i < 1000; i++)
+    {
+        initialParse(equation, v);
+        for (int j = 0; j < v.size(); j++)
+        {
+            if (v[j]->tokenType != Token::TokenType::Function)
+                continue;
+            Function::splitFunctions(v, j);
+            // printParsed(v);
+        }
+
+        // Clean up memory
+        for (Token* t : v)
+            delete t;
+        v.clear();
+    }
+    auto end{std::chrono::high_resolution_clock::now()};
+    std::chrono::duration<double, std::milli> diff{end - start};
+    std::cout << diff.count() << " ms\n";
+}
+*/
 
