@@ -7,8 +7,7 @@
 #include "tokens/Grouping.h"
 #include "tokens/Function.h"
 
-// #include <chrono>
-
+int calculate(std::string& equation);
 std::string getInput(int argc, char* argv[]);
 void initialParse(std::string& equation, std::vector<Token*>& tokens);
 void printParsed(const std::vector<Token*>& tokens);
@@ -16,23 +15,23 @@ int checkForMalformedInput(const std::vector<Token*>& tokens);
 int sanitizeEquation(std::vector<Token*>& tokens);
 void addMissingGroupings(std::vector<Token*>& tokens);
 
-// void testTime();
-
 int main(int argc, char* argv[])
 {
-    // Profiling
-    // testTime();
-
-
     // [Get input]
 
     std::string equation = getInput(argc, argv);
     std::cout << equation << "\n";
 
+    // In preparation for adding ways to go into a "mode" where the user can input multiple equations
+    return calculate(equation);
+}
+
+int calculate(std::string& equation)
+{
     // Ensure there is an input/equation
     if (equation.empty())
     {
-        // Instead of giving the user an error when there are no arguments, I might want to go into a mode where multiple equations can be input seperately until the user is done.  With this, I could also add syntax for "[A-Za-z] = ..." (storing results into variables), along with a special keyword for the previous output, like "prev" (there are probably better ones).
+        // Instead of giving the user an error when there are no arguments, I might want to go into a mode where multiple equations can be input separately until the user is done.  With this, I could also add syntax for "[A-Za-z] = ..." (storing results into variables), along with a special keyword for the previous output, like "prev" (there are probably better ones).
         std::cout << "Missing equation - proper format: 'calc \"{equation}\"'";
         return 0;
     }
@@ -219,10 +218,8 @@ int sanitizeEquation(std::vector<Token*>& tokens)
     {
         if (tokens[i]->tokenType != Token::TokenType::Function)
             continue;
-        std::cout << i << '\n';
         if (Function::splitFunctions(tokens, i))
             return -1;
-        std::cout << '\n' << i << '\n';
     }
 
     // Ensure functions were split properly
@@ -290,46 +287,4 @@ void addMissingGroupings(std::vector<Token*>& tokens)
     // Printing to ensure groupings were added correctly
     // printParsed(tokens);
 }
-
-/* It seems like tries are just over 2x faster than my method
-// Trie: ~155ms avg
-// Original: ~340ms avg
-void testTime()
-{
-    // std::vector<Token*> original{new Function{"flooreeeeefloor*1+7floorlnceilfloor*3^ceile-sincossinsincostanearch+arcsinhpiphi"}}, v{original};
-    std::string equation{"flooreeeeefloor*1+7floorlnceilfloor*3^ceile-sincossinsincostanearch+arcsinhpiphi"};
-    std::vector<Token*> v;
-    initialParse(equation, v);
-    int discard{};
-
-    // Temporary and just meant to get the trie constructed
-    Function::splitFunctions(v, discard);
-    printParsed(v);
-
-    for (Token* t : v)
-        delete t;
-    v.clear();
-
-    auto start{std::chrono::high_resolution_clock::now()};
-    for(int i = 0; i < 1000; i++)
-    {
-        initialParse(equation, v);
-        for (int j = 0; j < v.size(); j++)
-        {
-            if (v[j]->tokenType != Token::TokenType::Function)
-                continue;
-            Function::splitFunctions(v, j);
-            // printParsed(v);
-        }
-
-        // Clean up memory
-        for (Token* t : v)
-            delete t;
-        v.clear();
-    }
-    auto end{std::chrono::high_resolution_clock::now()};
-    std::chrono::duration<double, std::milli> diff{end - start};
-    std::cout << diff.count() << " ms\n";
-}
-*/
 
