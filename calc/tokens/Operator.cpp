@@ -5,19 +5,20 @@
 
 int Operator::getOrderOfOp(char symbol)
 {
+    // I could potentially just make the cases fall through and go from highest to lowest, with each on incrementing a number so that I don't have hardcoded numbers (in case the order ever needs to change/get corrected again).  Even then, the way that I am relying on hardcoded numbers (including in some checks in "calc.cpp") is not good and I should find another solution at some point.
     switch (symbol)
     {
+    case '%':
+        return 1;
     case '+':
     case '-':
-        return 1;
+        return 2;
     case '*':
     case '/':
-        return 2;
-    case '^':
         return 3;
-    case '!':
+    case '^':
         return 4;
-    case '%':
+    case '!':
         return 5;
     // Not entirely sure how I want to handle default as of yet, maybe return -1 instead?
     default:

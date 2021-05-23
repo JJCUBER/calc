@@ -63,17 +63,18 @@ calc.exe
 
 ***
 # Order of operations (low to high)
-1) `+ -`
-2) `* /`
-3) `^`
-4) `!` \[unsure about whether ! should have higher precedence than ^, it seems like it does on WolframAlpha]
-5) `%` \[same thing as above, it seems like `%` > `!` > `^` in precendence: [WolframAlpha](https://www.wolframalpha.com/input/?i=1%252%5E2%21).  Need to keep in mind that the modulus function in programming languages is a bit different from the mathematical one when it comes to negative numbers]
+1) `%` *\[Need to keep in mind that the modulus function in programming languages is a bit different from the mathematical one when it comes to negative numbers]*
+2) `+ -`
+3) `* /`
+4) `^`
+5) `!`
 6) `()`
+*\[it seems like `()` > `!` > `^` > `*/` > `+-` > `%` in precendence: [WolframAlpha](https://www.wolframalpha.com/input/?i=%282%2B1%252%5E2%21*3%29%252%2B3); also, a useful resource about the modulus being lowest in the order of operations can be found [here](https://math.stackexchange.com/questions/849713/where-does-modulus-take-place)]*
 #### Functions (not entirely sure how functions should be considered in order of operations <a name="functionPrecedence"></a>\[though they seem to be prioritized compared to `!` and `%`, and most definitely not prioritized compared to `()` on [WolframAlpha](https://www.wolframalpha.com/input/?i=ln2%252%2Bln2%21%2Bln%282%21%29)]; maybe they count as a "constant," in the sense that the stuff inside of the grouping following the function becomes a "part" of the function, effectively making it a constant/"variable"?)
 - `exp ln sqrt cbrt fact`
 - `log` \[not sure how/if I want to implement this, as I would either need to support subscript (`_`), or have log be comma separated with the first parameter being the base.  If I do end up adding support for comma separated parameters for a function, then parsing of the "mod" function would get more confusing, as it has the forms amodb and mod(a,b) and I would have to distinguish those two apart.  Maybe I only support `%` for `a%b` syntax and only support mod for `mod(a,b)` syntax?  I'll also need to determine whether % takes everything on the left and right, like how it does in [WolframAlpha](https://www.wolframalpha.com/input/?i=5%21%2B4%252-10%2B%281%29%25%282%29)]
 - \[might want to add mod, though it shouldn't really be considered a function, rather, it should be replaced by % when parsing since it has a left and right side]
-- `floor ceil` \[Handling this without round errors might be a bit difficult, though the best thing to do for now would probably be to ensure that an int gets returned if the outermost part of the function is one of these (like `ceil(1*2!)`)]
+- `floor ceil` \[Handling this without round errors might be a bit difficult, though the best thing to do for now would probably be to ensure that an int gets returned if the outermost part of the function is one of these (like `ceil(1*2!)`).  Also, [WolframAlpha](https://www.wolframalpha.com/input/?i=%284floor5*2%21%5E3%2B2-1%29%2Bceil%282%2B1%29-3%2B%28floor3%2B2%255-3%29) handles the `floor` and `ceil` functions as implicitly all-encompasing/having the lowest precendence in order of operations (even lower than `%`), but I will, for the time being *(might be subject to change)*, be treating it just like any other normal function.]
 - `sin cos tan csc sec cot` \[might want to add support for `arc-` prefix and `-1` exponent as inverse, if I decide to add `^-1` then it should probably get parsed as part of the function itself, though I will need to keep in mind that if it has both `arc` and `^-1`, they should cancel each other out]
 - \[might want to add the hyperbolic variants of the trig functions]
 - \[might want to add support for `trig_func^n(...)`]

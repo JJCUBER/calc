@@ -191,8 +191,8 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
         if (tokens[i - 1]->tokenType == Token::TokenType::Operator && tokens[i]->tokenType == Token::TokenType::Operator)
         {
             Operator *prevOp{(Operator*)tokens[i - 1]}, *currOp{(Operator*)tokens[i]};
-            // if (prevOp->orderOfOp == 1 && currOp->orderOfOp != 1)
-            if (prevOp->symbol != '!' && currOp->orderOfOp != 1)
+            // if (prevOp->orderOfOp == 2 && currOp->orderOfOp != 2)
+            if (prevOp->symbol != '!' && currOp->orderOfOp != 2)
             {
                 std::cout << "Error: Malformed Input - input has consecutive operators other than '![_]' or '[_][+-]': '" << prevOp->symbol << currOp->symbol << '\'';
                 return -1;
