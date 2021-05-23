@@ -1,5 +1,6 @@
-﻿// #include <iostream>
-// #include <vector>
+﻿#include <string>
+#include <iostream>
+#include <vector>
 
 #include "tokens/Token.h"
 #include "tokens/Number.h"
@@ -7,20 +8,23 @@
 #include "tokens/Grouping.h"
 #include "tokens/Function.h"
 
+// #define DONT_PRINT_PARSED
+
 int calculate(std::string& equation);
 std::string getInput(int argc, char* argv[]);
 void initialParse(std::string& equation, std::vector<Token*>& tokens);
-void printParsed(const std::vector<Token*>& tokens);
+void printParsed(const std::vector<Token*>& tokens, const std::string& reason = "");
 int checkForMalformedInput(const std::vector<Token*>& tokens);
 int sanitizeEquation(std::vector<Token*>& tokens);
-void addMissingGroupings(std::vector<Token*>& tokens);
 
 int main(int argc, char* argv[])
 {
     // [Get input]
 
-    std::string equation = getInput(argc, argv);
-    std::cout << equation << "\n";
+    std::string equation{getInput(argc, argv)};
+#ifndef DONT_PRINT_PARSED
+    std::cout << "[Input]: " << equation << "\n";
+#endif
 
     // In preparation for adding ways to go into a "mode" where the user can input multiple equations
     return calculate(equation);
@@ -43,7 +47,7 @@ int calculate(std::string& equation)
     initialParse(equation, tokens);
 
     // Printing to ensure that parsing is being done correctly
-    printParsed(tokens);
+    printParsed(tokens, "Parsed");
 
 
     // [Malformed Input Checks]
@@ -118,8 +122,13 @@ void initialParse(std::string& equation, std::vector<Token*>& tokens)
         tokens.push_back(isNumber ? (Token*)new Number{std::stold(token)} : new Function{token});
 }
 
-void printParsed(const std::vector<Token*>& tokens)
+// There is probably a better word to use here than "reason"
+void printParsed(const std::vector<Token*>& tokens, const std::string& reason)
 {
+#ifdef DONT_PRINT_PARSED
+    return;
+#endif
+
     std::string parsed;
     for (Token* t : tokens)
     {
@@ -140,7 +149,7 @@ void printParsed(const std::vector<Token*>& tokens)
         }
         parsed.push_back('_');
     }
-    std::cout << parsed << "\n";
+    std::cout << (reason.empty() ? "" : '[' + reason + "]: ") << parsed << "\n";
 }
 
 int checkForMalformedInput(const std::vector<Token*>& tokens)
@@ -155,7 +164,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
     // Ending with any operator other than '!'
     if (tokens.back()->tokenType == Token::TokenType::Operator)
     {
-        Operator* op = (Operator*)tokens.back();
+        Operator* op{(Operator*)tokens.back()};
         if (op->symbol != '!')
         {
             std::cout << "Error: Malformed Input - input ends with the operator (or unknown symbol) '" << op->symbol << '\'';
@@ -163,6 +172,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
         }
     }
 
+    // TODO: Sort out my lack of consistency with regard to the order of prev (i - 1) and curr (i) throughout the codebase
     for (int i = 1; i < tokens.size(); i++)
     {
         // Consecutive numbers
@@ -175,11 +185,11 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
         // Might want to add handling of consecutive operators here for stuff like '5*-4,' '5++4,' '5--4,' '5---4,' etc. (might want to warn about extra +'s and -'s)
         // Will also need to handle functions after taking into account ^, as in 'floor(+5),' 'floor(-5),' and 'floor(---5)' should all be valid, but not 'floor(*5)'
 
-        // Conescutive operators other than ![_] or [_][+-]
+        // Consecutive operators other than ![_] or [_][+-]
         if (tokens[i - 1]->tokenType == Token::TokenType::Operator && tokens[i]->tokenType == Token::TokenType::Operator)
         {
-            Operator *prevOp = (Operator*)tokens[i - 1], *currOp = (Operator*)tokens[i];
-            // if(prevOp->orderOfOp == 1 && currOp->orderOfOp != 1)
+            Operator *prevOp{(Operator*)tokens[i - 1]}, *currOp{(Operator*)tokens[i]};
+            // if (prevOp->orderOfOp == 1 && currOp->orderOfOp != 1)
             if (prevOp->symbol != '!' && currOp->orderOfOp != 1)
             {
                 std::cout << "Error: Malformed Input - input has consecutive operators other than '![_]' or '[_][+-]': '" << prevOp->symbol << currOp->symbol << '\'';
@@ -188,10 +198,22 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
             continue;
         }
 
+        // Function followed by a symbol other than '^'
+        if(tokens[i - 1]->tokenType == Token::TokenType::Function && tokens[i]->tokenType == Token::TokenType::Operator)
+        {
+            Operator* currOp{(Operator*)tokens[i]};
+            if(currOp->symbol != '^')
+            {
+                std::cout << "Error: Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i - 1])->name << currOp->symbol << '\'';
+                return -1;
+            }
+            continue;
+        }
+
         // Inside of group starts with any operator
         if (tokens[i - 1]->tokenType == Token::TokenType::Grouping)
         {
-            Grouping* grouping = (Grouping*)tokens[i - 1];
+            Grouping* grouping{(Grouping*)tokens[i - 1]};
             if (grouping->isOpen && tokens[i]->tokenType == Token::TokenType::Operator)
             {
                 std::cout << "Error: Malformed Input - input has an operator directly after a grouping: '" << grouping->symbol << ((Operator*)tokens[i])->symbol << '\'';
@@ -214,6 +236,7 @@ int sanitizeEquation(std::vector<Token*>& tokens)
 {
     // 1) parse function names and constants (if they aren't recognized, give the user an error and return)
     //   - this includes seeing if arc comes right before a trig function or h comes right after, should probably also handle ^-1 for trig functions and convert ^n or ^(n...) to some sort of function if it is being applied to a function
+    //   - will also need to throw an error if the equation ends with a function, though I might eventually support functions with no parameters (along with more than one parameter), so handling functions on a case by case basis might eventually be necessary
     for (int i = 0; i < tokens.size(); i++)
     {
         if (tokens[i]->tokenType != Token::TokenType::Function)
@@ -223,23 +246,43 @@ int sanitizeEquation(std::vector<Token*>& tokens)
     }
 
     // Ensure functions were split properly
-    printParsed(tokens);
+    printParsed(tokens, "Functions Split");
 
-    // Might want to insert *'s before this and function groupings after?
-    // Should probably also handle trig functions before this, like combining arc and ^-1 with the trig function
+
+    // Should probably handle trig functions around here, like combining arc and ^-1 with the trig function
+
+
+    // Replace functions that should be constants with their respective values
     for (int i = 0; i < tokens.size(); i++)
     {
         if (tokens[i]->tokenType != Token::TokenType::Function)
             continue;
-        const long double val = Number::getConstant(((Function*)tokens[i])->name);
+        long double val{Number::getConstant(((Function*)tokens[i])->name)};
         if (!val)
             continue;
         delete tokens[i];
         tokens[i] = new Number{val};
     }
 
-    // Ensure constants were replaced properly
-    printParsed(tokens);
+    // Ensure constants were substituted in properly
+    printParsed(tokens, "Constants Substituted In");
+
+    // TODO: I need to be handling the syntax '[func]^[n]([m])' either before this function gets called, or alongside/inside of it!
+    if (Grouping::addMissingFunctionGroupings(tokens))
+        return -1;
+
+    // Ensure function groupings were added properly
+    printParsed(tokens, "Function Groupings Added");
+
+    // Have to do this after inserting omitted function groupings, otherwise I would end up putting extra *'s where I don't intend them to be
+    // My original reason for trying to do it before replacing functions with constants is because I was worried about consecutive numbers, but I actually check for those implicitly in the following function (it is easier to include it in the checks as a "by-product" of sorts)
+    Operator::addMissingOperators(tokens);
+
+    // Ensure *'s were added properly
+    printParsed(tokens, "*'s Added");
+
+    // Remove consectuive +'s and -'s
+    // removeExtraOperators(tokens);
 
 
     // 2) add groupings following functions if they aren't there
@@ -251,40 +294,14 @@ int sanitizeEquation(std::vector<Token*>& tokens)
 
     // I've been thinking; I might want each function to have its own member vector of Token*'s, though it might take around the same amount of code and complexity to do it either way (with or without functions having their own member vector)
 
+
+    // Prepend and Append missing groupings
+    Grouping::addMissingOuterGroupings(tokens);
+
+    // Ensure outer Groupings were added properly
+    printParsed(tokens, "Outer Groupings Added");
+
     return 0;
 }
 
-// Maybe move this to Grouping.h?
-void addMissingGroupings(std::vector<Token*>& tokens)
-{
-    // Should be done after initial checks; I can't see any cases currently which would pass the checks when they shouldn't by doing this after (something like '(1+' would still be invalid without inserting the ')', since the equation would end with an operator other than '!')
-
-
-    // Get number of groupings, aka parenthesis to prepend and append
-    int min{}, ct{};
-    for (Token* t : tokens)
-    {
-        if (t->tokenType != Token::TokenType::Grouping)
-            continue;
-        ct += ((Grouping*)t)->isOpen ? 1 : -1;
-        min = std::min(ct, min);
-    }
-
-    // Prepend and append proper groupings if needed
-    if (min < 0)
-    {
-        for (int i = 0; i < -min; i++)
-            tokens.insert(tokens.begin(), new Grouping('('));
-        std::cout << "Warning: prepended " << -min << " '('\n";
-    }
-    if (ct - min > 0)
-    {
-        for (int i = 0; i < ct - min; i++)
-            tokens.push_back(new Grouping(')'));
-        std::cout << "Warning: appended " << ct - min << " ')'\n";
-    }
-
-    // Printing to ensure groupings were added correctly
-    // printParsed(tokens);
-}
 

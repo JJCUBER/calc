@@ -2,17 +2,12 @@
 
 #include <string>
 #include <utility>
-
-#include "Token.h"
-
-
-
 #include <iostream>
 #include <vector>
 #include <set>
 #include <algorithm>
 
-
+#include "Token.h"
 
 class Function : public Token
 {
@@ -21,7 +16,7 @@ class Function : public Token
         // iPos is input pos
         // nPos + len are names pos + names len
         int iPos, nPos, len;
-        Substr(int iPos, int nPos, int len = 1) : iPos{iPos}, nPos{nPos}, len{len} {}
+        Substr(int iPos, int nPos, int len) : iPos{iPos}, nPos{nPos}, len{len} {}
     };
 
     struct Trie
@@ -51,10 +46,10 @@ class Function : public Token
             curr->len = len;
         }
 
-        void findAllWords(const std::string& s, int pos, int size, std::vector<Substr>& output)
+        void findAllWords(const std::string& s, int pos, int size, std::vector<Substr>& output) const
         {
             int iPos{pos};
-            Trie* curr{this};
+            const Trie* curr{this};
             while (pos < size)
             {
                 curr = curr->children[s[pos++] - 'a'];
@@ -73,27 +68,10 @@ public:
 
     static int splitFunctions(std::vector<Token*>& tokens, int& pos)
     {
-
-        // vector<string> names{"apple", "e", "banana", "extra", "app", "leap"};
-        // string input{"appleappleappeextraapplesbananabananasapple"};
-        // vector<string> names{"e", "ceil", "floor"};
-        // string input{"eceileeeeeeeeceilflooreee"};
-        // vector<string> names{"zapa", "pap"};
-        // string input{"zapapapp"};
-        // vector<string> names{"apaz", "pap"};
-        // string input{"ppapapaz"};
-        // vector<string> names{"zapa", "pap"};
-        // string input{"zapapapp"};
-        // Unfortunately, my code for removing overlapping substrings doesn't really work, in the sense that there are edge cases like this one where some substrings that can still fit get removed :/
-        // vector<string> names{"abcd", "cde", "ef"};
-        // string input{"abcdef"};
-        // std::vector<std::string> names{"e", "ceil", "floor"};
-        // std::string input{"eceileeeeeeeeceilcflooreee"};
-
         static const std::string names[]{"e", "pi", "phi", "arc", "h", "sin", "cos", "tan", "csc", "sec", "cot", "floor", "ceil", "fact", "exp", "ln", "log", "sqrt", "cbrt"};
-        std::string input{((Function*)tokens[pos])->name};
+        static const Trie trie{names};
 
-        static Trie trie{names};
+        const std::string input{((Function*)tokens[pos])->name};
 
         std::vector<Substr> occurrences;
         int size(input.size());
@@ -116,7 +94,7 @@ public:
         };
         std::set<Substr, decltype(functionOrderComp)> orderedFunctions{{occurrences[0]}, functionOrderComp};
 
-        for (int i = 1; i < occurrences.size(); i++) // , ++it)
+        for (int i = 1; i < occurrences.size(); i++)
             orderedFunctions.insert(occurrences[i]);
 
         auto it{orderedFunctions.begin()};
@@ -137,7 +115,7 @@ public:
             }
             last += it->len;
 
-            tokens.insert(tokens.begin() + pos++, (Token*)new Function{input.substr(it->iPos, it->len)});
+            tokens.insert(tokens.begin() + pos++, new Function{input.substr(it->iPos, it->len)});
             /* Probably want to do this separately after the fact, as I currently modify the original Function* passed in; it would be cleaner to replace functions with numbers if need-be in calc.cpp
             std::string funcName = input.substr(it->iPos, it->len);
             tokens.insert(tokens.begin() + pos++, Number::isConstant(funcName) ? (Token*)new Number{Number::getConstant(funcName)} : new Function{funcName});
