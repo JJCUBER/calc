@@ -1,6 +1,7 @@
 ﻿#include <string>
 #include <iostream>
 #include <vector>
+#include <cctype>
 
 #include "tokens/Token.h"
 #include "tokens/Number.h"
@@ -173,6 +174,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
     }
 
     // TODO: Sort out my lack of consistency with regard to the order of prev (i - 1) and curr (i) throughout the codebase
+    // Might also want to invert ifs involving a continue and return path/branch inside of them to be more consistent
     for (int i = 1; i < tokens.size(); i++)
     {
         // Consecutive numbers
