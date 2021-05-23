@@ -69,6 +69,7 @@ calc.exe
 4) `^`
 5) `!`
 6) `()`
+
 *\[it seems like `()` > `!` > `^` > `*/` > `+-` > `%` in precendence: [WolframAlpha](https://www.wolframalpha.com/input/?i=%282%2B1%252%5E2%21*3%29%252%2B3); also, a useful resource about the modulus being lowest in the order of operations can be found [here](https://math.stackexchange.com/questions/849713/where-does-modulus-take-place)]*
 #### Functions (not entirely sure how functions should be considered in order of operations <a name="functionPrecedence"></a>\[though they seem to be prioritized compared to `!` and `%`, and most definitely not prioritized compared to `()` on [WolframAlpha](https://www.wolframalpha.com/input/?i=ln2%252%2Bln2%21%2Bln%282%21%29)]; maybe they count as a "constant," in the sense that the stuff inside of the grouping following the function becomes a "part" of the function, effectively making it a constant/"variable"?)
 - `exp ln sqrt cbrt fact`
