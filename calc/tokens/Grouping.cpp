@@ -20,7 +20,7 @@ int Grouping::addMissingFunctionGroupings(std::vector<Token*>& tokens)
         case TokenType::Grouping:
             if (((Grouping*)tokens[i + 1])->isOpen)
                 break;
-            std::cout << "Error: Malformed Input - input has a closing grouping directly after a function: '" << ((Function*)tokens[i])->name << ")'";
+            std::cout << "Error: Malformed Input - input has a closing grouping directly after a function: '" << ((Function*)tokens[i])->name << "'\n";
             return -1;
         case TokenType::Function:
             tokens.insert(tokens.begin() + ++i, new Grouping{'('});
@@ -41,7 +41,7 @@ int Grouping::addMissingFunctionGroupings(std::vector<Token*>& tokens)
         case TokenType::Operator:
             // I could also check for this in 'checkForMalformedInput(),' making it get caught earlier (as in having '[func]_[op]'), but I would need to exclude the case of '[func]_^' and either handle it here or earlier
             // Handle default (its an operator [which is invalid]; cout error)
-            std::cout << "Error: UNCAUGHT Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i])->name << ((Operator*)tokens[i + 1])->symbol << '\'';
+            std::cout << "Error: UNCAUGHT Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i])->name << ((Operator*)tokens[i + 1])->symbol << "'\n";
             return -1;
         }
     }

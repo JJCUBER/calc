@@ -11,12 +11,14 @@
 
 // #define DONT_PRINT_PARSED
 
+int enterMultipleEquationsMode();
 int calculate(std::string& equation);
 std::string getInput(int argc, char* argv[]);
 void initialParse(std::string& equation, std::vector<Token*>& tokens);
 void printParsed(const std::vector<Token*>& tokens, const std::string& reason = "");
 int checkForMalformedInput(const std::vector<Token*>& tokens);
 int sanitizeEquation(std::vector<Token*>& tokens);
+int evaluate(const std::vector<Token*>& tokens);
 
 int main(int argc, char* argv[])
 {
@@ -27,8 +29,31 @@ int main(int argc, char* argv[])
     std::cout << "[Input]: " << equation << "\n";
 #endif
 
-    // In preparation for adding ways to go into a "mode" where the user can input multiple equations
+    if (equation.empty())
+        return enterMultipleEquationsMode();
+
     return calculate(equation);
+}
+
+int enterMultipleEquationsMode()
+{
+    std::cout << "Entering Multiple Equations Mode.  Type exit/quit to leave this mode.\n";
+    bool isDone{};
+    while (!isDone)
+    {
+        std::cout << "> ";
+        std::string equation;
+        std::getline(std::cin, equation);
+        for (char& c : equation)
+            c = tolower(c);
+        if (equation == "exit" || equation == "quit")
+            isDone = true;
+        // else if (calculate(equation))
+        //     return -1;
+        else
+            calculate(equation);
+    }
+    return 0;
 }
 
 int calculate(std::string& equation)
@@ -37,7 +62,7 @@ int calculate(std::string& equation)
     if (equation.empty())
     {
         // Instead of giving the user an error when there are no arguments, I might want to go into a mode where multiple equations can be input separately until the user is done.  With this, I could also add syntax for "[A-Za-z] = ..." (storing results into variables), along with a special keyword for the previous output, like "prev" (there are probably better ones).
-        std::cout << "Missing equation - proper format: 'calc \"{equation}\"'";
+        std::cout << "Missing equation - proper format: 'calc \"{equation}\"'\n";
         return 0;
     }
 
@@ -158,7 +183,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
     // Starting with any operator
     if (tokens[0]->tokenType == Token::TokenType::Operator)
     {
-        std::cout << "Error: Malformed Input - input starts with the operator (or unknown symbol) '" << ((Operator*)tokens[0])->symbol << '\'';
+        std::cout << "Error: Malformed Input - input starts with the operator (or unknown symbol) '" << ((Operator*)tokens[0])->symbol << "'\n";
         return -1;
     }
 
@@ -168,7 +193,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
         Operator* op{(Operator*)tokens.back()};
         if (op->symbol != '!')
         {
-            std::cout << "Error: Malformed Input - input ends with the operator (or unknown symbol) '" << op->symbol << '\'';
+            std::cout << "Error: Malformed Input - input ends with the operator (or unknown symbol) '" << op->symbol << "'\n";
             return -1;
         }
     }
@@ -180,7 +205,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
         // Consecutive numbers
         if (tokens[i]->tokenType == Token::TokenType::Number && tokens[i - 1]->tokenType == Token::TokenType::Number)
         {
-            std::cout << "Error: Malformed Input - input has consecutive numbers: '" << ((Number*)tokens[i - 1])->n << "' '" << ((Number*)tokens[i])->n << '\'';
+            std::cout << "Error: Malformed Input - input has consecutive numbers: '" << ((Number*)tokens[i - 1])->n << "' '" << ((Number*)tokens[i])->n << "'\n";
             return -1;
         }
 
@@ -194,7 +219,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
             // if (prevOp->orderOfOp == 2 && currOp->orderOfOp != 2)
             if (prevOp->symbol != '!' && currOp->orderOfOp != 2)
             {
-                std::cout << "Error: Malformed Input - input has consecutive operators other than '![_]' or '[_][+-]': '" << prevOp->symbol << currOp->symbol << '\'';
+                std::cout << "Error: Malformed Input - input has consecutive operators other than '![_]' or '[_][+-]': '" << prevOp->symbol << currOp->symbol << "'\n";
                 return -1;
             }
             continue;
@@ -206,7 +231,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
             Operator* currOp{(Operator*)tokens[i]};
             if(currOp->symbol != '^')
             {
-                std::cout << "Error: Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i - 1])->name << currOp->symbol << '\'';
+                std::cout << "Error: Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i - 1])->name << currOp->symbol << "'\n";
                 return -1;
             }
             continue;
@@ -218,7 +243,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
             Grouping* grouping{(Grouping*)tokens[i - 1]};
             if (grouping->isOpen && tokens[i]->tokenType == Token::TokenType::Operator)
             {
-                std::cout << "Error: Malformed Input - input has an operator directly after a grouping: '" << grouping->symbol << ((Operator*)tokens[i])->symbol << '\'';
+                std::cout << "Error: Malformed Input - input has an operator directly after a grouping: '" << grouping->symbol << ((Operator*)tokens[i])->symbol << "'\n";
                 return -1;
             }
         }
@@ -226,7 +251,7 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
         else if (tokens[i]->tokenType == Token::TokenType::Grouping && !((Grouping*)tokens[i])->isOpen &&
                  tokens[i - 1]->tokenType == Token::TokenType::Operator && ((Operator*)tokens[i - 1])->symbol != '!')
         {
-            std::cout << "Error: Malformed Input - input has an operator other than '!' directly before a grouping: '" << ((Operator*)tokens[i - 1])->symbol << ((Grouping*)tokens[i])->symbol << '\'';
+            std::cout << "Error: Malformed Input - input has an operator other than '!' directly before a grouping: '" << ((Operator*)tokens[i - 1])->symbol << ((Grouping*)tokens[i])->symbol << "'\n";
             return -1;
         }
     }
@@ -303,7 +328,14 @@ int sanitizeEquation(std::vector<Token*>& tokens)
     // Ensure outer Groupings were added properly
     printParsed(tokens, "Outer Groupings Added");
 
+    // Will eventually be able to call this
+    // int result = evaluate(tokens);
+
     return 0;
 }
 
-
+int evaluate(const std::vector<Token*>& tokens)
+{
+    // TODO: Implement this to recursively split the tokens vector up into two sides with an operator in-between
+    return 0;
+}

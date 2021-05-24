@@ -45,6 +45,12 @@ int Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
     for (int i = 0; i < size; i++)
         trie.findAllWords(input, i, size, occurrences);
 
+    if(occurrences.empty())
+    {
+        std::cout << "Error: Malformed Input - no functions were found in '" << input << "'\n";
+        return -1;
+    }
+
     std::sort(occurrences.rbegin(), occurrences.rend(), [](const Substr& s1, const Substr& s2) { return s1.len == s2.len ? s1.iPos < s2.iPos : s1.len < s2.len; });
 
     auto haveOverlap = [&](const Substr& s1, const Substr& s2)
@@ -64,22 +70,22 @@ int Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
     for (int i = 1; i < occurrences.size(); i++)
         orderedFunctions.insert(occurrences[i]);
 
+    auto printErrorFailedToSeparate = [&]()
+    {
+        std::cout << "Error: Malformed Input - not everything was able to be parsed into separate functions in '" << input << "'\n";
+        return -1;
+    };
+
     auto it{orderedFunctions.begin()};
     if (it->iPos)
-    {
-        std::cout << "Not everything was able to be parsed into separate functions\n";
-        return -1;
-    }
+        return printErrorFailedToSeparate();
     ((Function*)tokens[pos++])->name = input.substr(0, it->len);
 
     int last{it->len};
     while (++it != orderedFunctions.end())
     {
         if (it->iPos != last)
-        {
-            std::cout << "Not everything was able to be parsed into separate functions\n"; // << last << "!=" << it->iPos;
-            return -1;
-        }
+            return printErrorFailedToSeparate();
         last += it->len;
 
         tokens.insert(tokens.begin() + pos++, new Function{input.substr(it->iPos, it->len)});
@@ -89,5 +95,5 @@ int Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
         */
     }
 
-    return 0;
+    return last != input.size() ? printErrorFailedToSeparate() : 0;
 }
