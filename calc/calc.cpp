@@ -1,7 +1,10 @@
 ﻿#include <string>
 #include <iostream>
 #include <vector>
+#include <sstream>
+#include <cmath>
 #include <cctype>
+#include <limits>
 
 #include "tokens/Token.h"
 #include "tokens/Number.h"
@@ -16,12 +19,17 @@ int calculate(std::string& equation);
 std::string getInput(int argc, char* argv[]);
 void initialParse(std::string& equation, std::vector<Token*>& tokens);
 void printParsed(const std::vector<Token*>& tokens, const std::string& reason = "");
-int checkForMalformedInput(const std::vector<Token*>& tokens);
+int checkForEarlyMalformedInput(const std::vector<Token*>& tokens);
 int sanitizeEquation(std::vector<Token*>& tokens);
-int evaluate(const std::vector<Token*>& tokens);
+int checkForLaterMalformedInput(const std::vector<Token*>& tokens);
+long double evaluate(const std::vector<Token*>& tokens, int pos, int len);
 
 int main(int argc, char* argv[])
 {
+    Function::testTrieRemoval();
+
+    std::cout.precision(12);
+
     // [Get input]
 
     std::string equation{getInput(argc, argv)};
@@ -78,7 +86,8 @@ int calculate(std::string& equation)
 
     // [Malformed Input Checks]
 
-    if (checkForMalformedInput(tokens))
+    // HAD to move part of these checks to occur after splitting functions, otherwise replacing functions with constants where relevant would happen AFTER the checks which would lead to problems like e*1 being invalid (it thinks that e should be a function at that point)
+    if (checkForEarlyMalformedInput(tokens))
         return -1;
 
 
@@ -87,6 +96,12 @@ int calculate(std::string& equation)
     if (sanitizeEquation(tokens))
         return -1;
 
+
+    long double result{evaluate(tokens, 0, tokens.size())};
+    // Not entirely sure how I want to handle outputing this yet, as I want stuff like sin(pi) to output 0 instead of something like "1.22465e-16," but I also want to be very accurate; will likely require some fine tuning
+    // std::cout << "[Result]: " << result << '\n';
+    // Might want to make the output format small/large numbers slightly differently than how it currently formats like "3.48237e-2"; maybe use "E" or "*10^_" instead
+    std::cout << "[Result]: " << (std::abs(result) < 1E-12L ? 0.0L : result) << '\n';
 
     return 0;
 }
@@ -155,36 +170,43 @@ void printParsed(const std::vector<Token*>& tokens, const std::string& reason)
     return;
 #endif
 
-    std::string parsed;
+    // Using ostringstream since I can specify the proper precision and it is much faster than cout'ing every part along the way
+    std::ostringstream output{(reason.empty() ? "" : '[' + reason + "]: "), std::ios_base::ate};
+    output.precision(12);
     for (Token* t : tokens)
     {
         switch (t->tokenType)
         {
         case Token::TokenType::Number:
-            parsed += std::to_string(((Number*)t)->n);
+            output << ((Number*)t)->n;
             break;
         case Token::TokenType::Operator:
-            parsed.push_back(((Operator*)t)->symbol);
+            output << ((Operator*)t)->symbol;
             break;
         case Token::TokenType::Grouping:
-            parsed.push_back(((Grouping*)t)->symbol);
+            output << ((Grouping*)t)->symbol;
             break;
         case Token::TokenType::Function:
-            parsed += ((Function*)t)->name;
+            output << ((Function*)t)->name;
             break;
         }
-        parsed.push_back('_');
+        output << '_';
     }
-    std::cout << (reason.empty() ? "" : '[' + reason + "]: ") << parsed << "\n";
+    output << '\n';
+    std::cout << output.str();
 }
 
-int checkForMalformedInput(const std::vector<Token*>& tokens)
+int checkForEarlyMalformedInput(const std::vector<Token*>& tokens)
 {
-    // Starting with any operator
+    // Starting with any operator other than '+' or '-'
     if (tokens[0]->tokenType == Token::TokenType::Operator)
     {
-        std::cout << "Error: Malformed Input - input starts with the operator (or unknown symbol) '" << ((Operator*)tokens[0])->symbol << "'\n";
-        return -1;
+        Operator* op{(Operator*)tokens[0]};
+        if (op->orderOfOp != 2)
+        {
+            std::cout << "Error: Malformed Input - input starts with an operator (or unknown symbol) other than '+' or '-': '" << op->symbol << "'\n";
+            return -1;
+        }
     }
 
     // Ending with any operator other than '!'
@@ -193,12 +215,11 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
         Operator* op{(Operator*)tokens.back()};
         if (op->symbol != '!')
         {
-            std::cout << "Error: Malformed Input - input ends with the operator (or unknown symbol) '" << op->symbol << "'\n";
+            std::cout << "Error: Malformed Input - input ends with an operator (or unknown symbol) other than '!': '" << op->symbol << "'\n";
             return -1;
         }
     }
 
-    // TODO: Sort out my lack of consistency with regard to the order of prev (i - 1) and curr (i) throughout the codebase
     // Might also want to invert ifs involving a continue and return path/branch inside of them to be more consistent
     for (int i = 1; i < tokens.size(); i++)
     {
@@ -225,26 +246,24 @@ int checkForMalformedInput(const std::vector<Token*>& tokens)
             continue;
         }
 
-        // Function followed by a symbol other than '^'
-        if(tokens[i - 1]->tokenType == Token::TokenType::Function && tokens[i]->tokenType == Token::TokenType::Operator)
-        {
-            Operator* currOp{(Operator*)tokens[i]};
-            if(currOp->symbol != '^')
-            {
-                std::cout << "Error: Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i - 1])->name << currOp->symbol << "'\n";
-                return -1;
-            }
-            continue;
-        }
-
-        // Inside of group starts with any operator
         if (tokens[i - 1]->tokenType == Token::TokenType::Grouping)
         {
             Grouping* grouping{(Grouping*)tokens[i - 1]};
-            if (grouping->isOpen && tokens[i]->tokenType == Token::TokenType::Operator)
+            if (grouping->isOpen)
             {
-                std::cout << "Error: Malformed Input - input has an operator directly after a grouping: '" << grouping->symbol << ((Operator*)tokens[i])->symbol << "'\n";
-                return -1;
+                // Inside of group starts with any operator
+                if (tokens[i]->tokenType == Token::TokenType::Operator)
+                {
+                    std::cout << "Error: Malformed Input - input has an operator directly after a grouping: '" << grouping->symbol << ((Operator*)tokens[i])->symbol << "'\n";
+                    return -1;
+                }
+
+                // Empty set of groupings "()"
+                if (tokens[i]->tokenType == Token::TokenType::Grouping && !((Grouping*)tokens[i])->isOpen)
+                {
+                    std::cout << "Error: Malformed Input - input has a set of groupings with nothing inside: '()'\n";
+                    return -1;
+                }
             }
         }
         // Inside of group ends with any operator other than '!'
@@ -279,12 +298,23 @@ int sanitizeEquation(std::vector<Token*>& tokens)
     // Should probably handle trig functions around here, like combining arc and ^-1 with the trig function
 
 
-    // Replace functions that should be constants with their respective values
     for (int i = 0; i < tokens.size(); i++)
     {
         if (tokens[i]->tokenType != Token::TokenType::Function)
             continue;
-        long double val{Number::getConstant(((Function*)tokens[i])->name)};
+
+        Function* currFunc{(Function*)tokens[i]};
+
+        // Replace "mod" function with "%" operator, as it is formatted with a l and r side, just like operators
+        if (currFunc->name == "mod")
+        {
+            delete tokens[i];
+            tokens[i] = new Operator{'%'};
+            continue;
+        }
+
+        // Replace functions that should be constants with their respective values
+        long double val{Number::getConstant(currFunc->name)};
         if (!val)
             continue;
         delete tokens[i];
@@ -293,6 +323,12 @@ int sanitizeEquation(std::vector<Token*>& tokens)
 
     // Ensure constants were substituted in properly
     printParsed(tokens, "Constants Substituted In");
+
+
+    // HAVE to do this AFTER splitting functions and replacing functions with constants where relevant
+    if (checkForLaterMalformedInput(tokens))
+        return -1;
+
 
     // TODO: I need to be handling the syntax '[func]^[n]([m])' either before this function gets called, or alongside/inside of it!
     if (Grouping::addMissingFunctionGroupings(tokens))
@@ -312,11 +348,12 @@ int sanitizeEquation(std::vector<Token*>& tokens)
     // removeExtraOperators(tokens);
 
 
-    // 2) add groupings following functions if they aren't there
-    // 3) insert omitted *'s between numbers, groupings, and factorials ('[n!f](', ')[n!f]', ')(', 'ff', and '[n!f][n!f]' (except can't have '[n][n]'; also, if I decide to do the step about inserting groupings after functions before this, then I wouldn't need to include that in th checks, just groupings)
+    // [DONE] 2) add groupings following functions if they aren't there
+    // [DONE] 3) insert omitted *'s between numbers, groupings, and factorials ('[n!f](', ')[n!f]', ')(', 'ff', and '[n!f][n!f]' (except can't have '[n][n]'; also, if I decide to do the step about inserting groupings after functions before this, then I wouldn't need to include that in th checks, just groupings)
     // 4) convert consecutive +---+--... to one symbol
     // 5) if there is anything of the nature [*/][+-], make the [+-] apply to the following number, or if it is a function/grouping, makes some sort of sub() function in the event of a '-' and do nothing in the event of a '+'
-    // 6) prepend and append missing groupings (not sure when the optimal time would be to do this; could also decouple when I find the amount to be added from when I actually do so so that they aren't in the way of the other "sanitizers")
+    //     - Also want to handle "[(][+-]," as it is currently counted as an error
+    // [DONE] 6) prepend and append missing groupings (not sure when the optimal time would be to do this; could also decouple when I find the amount to be added from when I actually do so so that they aren't in the way of the other "sanitizers")
     // 7) convert ! to fact()
 
     // I've been thinking; I might want each function to have its own member vector of Token*'s, though it might take around the same amount of code and complexity to do it either way (with or without functions having their own member vector)
@@ -328,14 +365,101 @@ int sanitizeEquation(std::vector<Token*>& tokens)
     // Ensure outer Groupings were added properly
     printParsed(tokens, "Outer Groupings Added");
 
-    // Will eventually be able to call this
-    // int result = evaluate(tokens);
-
     return 0;
 }
 
-int evaluate(const std::vector<Token*>& tokens)
+int checkForLaterMalformedInput(const std::vector<Token*>& tokens)
 {
-    // TODO: Implement this to recursively split the tokens vector up into two sides with an operator in-between
+    for (int i = 1; i < tokens.size(); i++)
+    {
+        // Function followed by a symbol other than '^'
+        if (tokens[i - 1]->tokenType == Token::TokenType::Function && tokens[i]->tokenType == Token::TokenType::Operator)
+        {
+            Operator* currOp{(Operator*)tokens[i]};
+            if (currOp->symbol != '^')
+            {
+                std::cout << "Error: Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i - 1])->name << currOp->symbol << "'\n";
+                return -1;
+            }
+            // continue;
+        }
+    }
     return 0;
+}
+
+long double evaluate(const std::vector<Token*>& tokens, int pos, int len)
+{
+    if (len == 1)
+    {
+        if (tokens[pos]->tokenType != Token::TokenType::Number)
+        {
+            // Might want to output this same warning if len <= 0?  I don't think that this function can ever be called with len <= 0 though
+            std::cout << "Warning: Uncaught malformed input, answer might be wrong\n";
+            return 0;
+        }
+        return ((Number*)tokens[pos])->n;
+    }
+
+    // int opPos{std::numeric_limits<int>::max()}, opPrecendence{std::numeric_limits<int>::max()}, depth{};
+    int depth{};
+    bool hasOffset{tokens[pos]->tokenType == Token::TokenType::Function};
+    // This checks to make sure that the sector passed to this function is of the form "(...)"/"func(...)" and not something like "(...)...(...)"/"func(...)...(...)"
+    // Don't need to check that the first is an open grouping and the second is a close grouping, as this should already be ensured by checks and the way that "sectors" are passed to this recursive function; an unmatched set of groupings can never make it here
+    if (tokens[pos + hasOffset]->tokenType == Token::TokenType::Grouping && tokens[pos + len - 1]->tokenType == Token::TokenType::Grouping)
+    {
+        // Empty groupings "()"; doesn't take into account "[func]()," but I don't think that a function with no parameter can get to here (should log an error earlier on)
+        // In fact, I should actually make it so that this isn't valid input (having groupings directly after each other like this "()")
+        // if (len == 2)
+            // return 0;
+
+        for (int i = pos + len - 1; i >= pos + 1 + hasOffset; i--)
+        {
+            if (tokens[i]->tokenType != Token::TokenType::Grouping)
+                continue;
+            depth += (((Grouping*)tokens[i])->isOpen << 1) - 1;
+            if (!depth)
+                break;
+        }
+
+        if (depth)
+        {
+            if (hasOffset)
+                // std::cout << "evaluate(tokens, " << pos + 2 << ", " << len - 3 << ")\n";
+                return ((Function*)tokens[pos])->runFunc(evaluate(tokens, pos + 2, len - 3));
+            // std::cout << "evaluate(tokens, " << pos + 1 << ", " << len - 2 << ")\n";
+            return evaluate(tokens, pos + 1, len - 2);
+        }
+    }
+
+    int opPos{std::numeric_limits<int>::max()}, minOrderOfOp{std::numeric_limits<int>::max()};
+    depth = 0;
+    // Very first and last shouldn't be operators, so no need to check them
+    // for (int i = pos + len - 2; i >= pos + 1; i--)
+    // However, I do have to go from the very end to the very beginning because one side can have a grouping which I need to account for
+    for (int i = pos + len - 1; i >= pos; i--)
+    {
+        // Keep track of grouping depth
+        if (tokens[i]->tokenType == Token::TokenType::Grouping)
+        {
+            depth += (((Grouping*)tokens[i])->isOpen << 1) - 1;
+            continue;
+        }
+
+        // Continue if at the wrong depth or not on an operator
+        if (depth || tokens[i]->tokenType != Token::TokenType::Operator)
+            continue;
+
+        // Update stored operator information if it has lower precedence (order of operations) than the current
+        Operator* op{(Operator*)tokens[i]};
+        if (op->orderOfOp >= minOrderOfOp)
+            continue;
+        minOrderOfOp = op->orderOfOp;
+        opPos = i;
+    }
+
+
+
+
+    // std::cout << "evaluate(tokens, " << pos << ", " << opPos - pos << ") | evaluate(tokens, " << opPos + 1 << ", " << len + pos - opPos - 1 << ")\n";
+    return ((Operator*)tokens[opPos])->runOp(evaluate(tokens, pos, opPos - pos), evaluate(tokens, opPos + 1, len + pos - opPos - 1));
 }

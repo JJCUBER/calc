@@ -18,6 +18,7 @@ int Operator::getOrderOfOp(char symbol)
         return 3;
     case '^':
         return 4;
+    // Assuming that I do end up converting factorials to a function like "fact()", this case probably won't be needed
     case '!':
         return 5;
     // Not entirely sure how I want to handle default as of yet, maybe return -1 instead?
@@ -38,5 +39,29 @@ void Operator::addMissingOperators(std::vector<Token*>& tokens)
         if ((tokens[i - 1]->tokenType == TokenType::Number || tokens[i - 1]->tokenType == TokenType::Function || tokens[i - 1]->tokenType == TokenType::Grouping && !((Grouping*)tokens[i - 1])->isOpen) &&
            (tokens[i]->tokenType == TokenType::Number || tokens[i]->tokenType == TokenType::Function || tokens[i]->tokenType == TokenType::Grouping && ((Grouping*)tokens[i])->isOpen))
             tokens.insert(tokens.begin() + i++, new Operator{'*'});
+    }
+}
+
+long double Operator::runOp(long double l, long double r) const
+{
+    switch (symbol)
+    {
+    case '%':
+        // slow
+        // return std::fmod((r + std::fmod(l, r)), r);
+        return l - r * std::floor(l / r);
+    case '+':
+        return l + r;
+    case '-':
+        return l - r;
+    case '*':
+        return l * r;
+    case '/':
+        return l / r;
+    case '^':
+        return std::pow(l, r);
+    default:
+        // Might want to handle this differently
+        return 0;
     }
 }

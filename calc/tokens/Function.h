@@ -28,10 +28,16 @@ class Function : public Token
             for (int n = 0; n < N; n++)
                 insert(names[n], n, names[n].size());
         }
-        //  I'm not really planning on ever using the Trie anywhere else other than my single static declaration (and its children), so there is no point in having a destructor; however, if I ever do decide to use it elsewhere, I should probably create a destructor which deletes each child
+        ~Trie()
+        {
+            for (int i = 0; i < 26; i++)
+                delete children[i];
+            // std::cout << "Deleted Trie\n";
+        }
 
         void insert(const std::string& s, int nPos, int len);
         void findAllWords(const std::string& s, int pos, int size, std::vector<Substr>& output) const;
+        int remove(const std::string& s);
     };
     
 public:
@@ -40,4 +46,8 @@ public:
     Function(std::string name) : Token{TokenType::Function}, name{std::move(name)} {}
 
     static int splitFunctions(std::vector<Token*>& tokens, int& pos);
+
+    long double runFunc(long double n) const;
+
+    static void testTrieRemoval();
 };
