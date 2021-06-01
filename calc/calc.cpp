@@ -16,9 +16,9 @@
 #include "Evaluator.h"
 
 
+std::string getInput(int argc, char* argv[]);
 int enterMultipleEquationsMode();
 int calculate(std::string& equation);
-std::string getInput(int argc, char* argv[]);
 
 int main(int argc, char* argv[])
 {
@@ -38,6 +38,17 @@ int main(int argc, char* argv[])
         return enterMultipleEquationsMode();
 
     return calculate(equation);
+}
+
+std::string getInput(int argc, char* argv[])
+{
+    std::string equation;
+    // Combines all parameters into one
+    for (int i = 1; i < argc; i++)
+        equation.append(argv[i]);
+    for (char& c : equation)
+        c = std::tolower(c);
+    return equation;
 }
 
 int enterMultipleEquationsMode()
@@ -104,15 +115,3 @@ int calculate(std::string& equation)
 
     return 0;
 }
-
-std::string getInput(int argc, char* argv[])
-{
-    std::string equation;
-    // Combines all parameters into one
-    for (int i = 1; i < argc; i++)
-        equation.append(argv[i]);
-    for (char& c : equation)
-        c = std::tolower(c);
-    return equation;
-}
-
