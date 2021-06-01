@@ -1,4 +1,5 @@
 #include <limits>
+#include <cmath>
 
 #include "Operator.h"
 #include "Grouping.h"
