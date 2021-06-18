@@ -1,11 +1,14 @@
 #include <iostream>
 
 #include "Grouping.h"
+
 #include "Function.h"
 #include "Operator.h"
 
 int Grouping::addMissingFunctionGroupings(std::vector<Token*>& tokens)
 {
+    // TODO: It would be more optimal to go from left to right since this is doing insertions, but the code currently relies on functions to the right already having their groupings so as to make it easier to wrap around it
+
     // 1) Find each function position
     // 2) If it is followed directly by an open grouping, then continue on to look for another function
     // 3) Otherwise, wrap the item directly after it with groupings (if the item directly after it is a function, will have to wrap around the function and the grouping after it: "lnln(5)" => "ln(ln(5))")
@@ -61,8 +64,6 @@ void Grouping::addMissingOuterGroupings(std::vector<Token*>& tokens)
     {
         if (t->tokenType != TokenType::Grouping)
             continue;
-        // ct += ((Grouping*)t)->isOpen ? 1 : -1;
-        // ct += ((Grouping*)t)->isOpen * 2 - 1;
         ct += (((Grouping*)t)->isOpen << 1) - 1;
         min = std::min(ct, min);
     }
@@ -80,7 +81,4 @@ void Grouping::addMissingOuterGroupings(std::vector<Token*>& tokens)
             tokens.push_back(new Grouping(')'));
         std::cout << "Warning: appended " << ct - min << " ')'\n";
     }
-
-    // Printing to ensure groupings were added correctly
-    // printParsed(tokens);
 }

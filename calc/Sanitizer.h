@@ -15,11 +15,22 @@ namespace Sanitizer
 {
     inline int checkForEarlyMalformedInput(const std::vector<Token*>& tokens)
     {
+        /* Don't think I need this, as I have support for ==
+        // Has any '=' remaining ('=' in the right spot has already been handled and removed from the vector, the remainder are invalid)
+        for (int i = 0; i < tokens.size(); i++)
+        {
+            if (tokens[i]->tokenType != Token::TokenType::Operator || ((Operator*)tokens[i])->orderOfOp != Operator::OrderOfOpType::Equal)
+                continue;
+            std::cout << "Error: Malformed Input - input has an '=' in an invalid spot of the equation; proper format is '[constant name] = [equation]'\n";
+            return -1;
+        }
+        */
+
         // Starting with any operator other than '+' or '-'
         if (tokens[0]->tokenType == Token::TokenType::Operator)
         {
             Operator* op{(Operator*)tokens[0]};
-            if (op->orderOfOp != 2)
+            if (op->orderOfOp != Operator::OrderOfOpType::AddSubtract)
             {
                 std::cout << "Error: Malformed Input - input starts with an operator (or unknown symbol) other than '+' or '-': '" << op->symbol << "'\n";
                 return -1;
@@ -50,29 +61,44 @@ namespace Sanitizer
             // Might want to add handling of consecutive operators here for stuff like '5*-4,' '5++4,' '5--4,' '5---4,' etc. (might want to warn about extra +'s and -'s)
             // Will also need to handle functions after taking into account ^, as in 'floor(+5),' 'floor(-5),' and 'floor(---5)' should all be valid, but not 'floor(*5)'
 
-            // Consecutive operators other than ![_] or [_][+-]
-            if (tokens[i - 1]->tokenType == Token::TokenType::Operator && tokens[i]->tokenType == Token::TokenType::Operator)
+            if (tokens[i - 1]->tokenType == Token::TokenType::Operator)
             {
-                Operator *prevOp{(Operator*)tokens[i - 1]}, *currOp{(Operator*)tokens[i]};
-                // if (prevOp->orderOfOp == 2 && currOp->orderOfOp != 2)
-                if (prevOp->symbol != '!' && currOp->orderOfOp != 2)
+                Operator* prevOp{(Operator*)tokens[i - 1]};
+
+                // Unknown operator/symbol; doesn't need to check the last token in tokens, as it is already guaranteed to not be an operator (technically don't need to check the first one either, as it is already guaranteed to not be any operator other than a sign [+-])
+                if (prevOp->orderOfOp == Operator::OrderOfOpType::Unknown)
                 {
-                    std::cout << "Error: Malformed Input - input has consecutive operators other than '![_]' or '[_][+-]': '" << prevOp->symbol << currOp->symbol << "'\n";
+                    std::cout << "Error: Malformed Input - input has an unknown operator/symbol: '" << prevOp->symbol << "'\n";
                     return -1;
                 }
-                continue;
+
+                // Consecutive operators other than ![_] or [_][+-]
+                if (tokens[i]->tokenType == Token::TokenType::Operator)
+                {
+                    Operator* currOp{(Operator*)tokens[i]};
+                    if (prevOp->orderOfOp != Operator::OrderOfOpType::Factorial && currOp->orderOfOp != Operator::OrderOfOpType::AddSubtract)
+                    {
+                        std::cout << "Error: Malformed Input - input has consecutive operators other than '![_]' or '[_][+-]': '" << prevOp->symbol << currOp->symbol << "'\n";
+                        return -1;
+                    }
+                    continue;
+                }
             }
 
             if (tokens[i - 1]->tokenType == Token::TokenType::Grouping)
             {
-                Grouping* grouping{(Grouping*)tokens[i - 1]};
-                if (grouping->isOpen)
+                Grouping* prevGrouping{(Grouping*)tokens[i - 1]};
+                if (prevGrouping->isOpen)
                 {
-                    // Inside of group starts with any operator
+                    // Inside of group starts with any operator other than + or -
                     if (tokens[i]->tokenType == Token::TokenType::Operator)
                     {
-                        std::cout << "Error: Malformed Input - input has an operator directly after a grouping: '" << grouping->symbol << ((Operator*)tokens[i])->symbol << "'\n";
-                        return -1;
+                        Operator* currOp{(Operator*)tokens[i]};
+                        if(currOp->orderOfOp != Operator::OrderOfOpType::AddSubtract)
+                        {
+                            std::cout << "Error: Malformed Input - input has an operator directly after a grouping other than '+' or '-': '" << prevGrouping->symbol << currOp->symbol << "'\n";
+                            return -1;
+                        }
                     }
 
                     // Empty set of groupings "()"
@@ -95,7 +121,7 @@ namespace Sanitizer
         return 0;
     }
 
-    // Might want to move this to Number:: or Operator::?
+    // TODO: Might want to move this to Number:: or Operator::?
     inline void substituteConstantsAndSymbols(std::vector<Token*>& tokens)
     {
         for (int i = 0; i < tokens.size(); i++)
@@ -114,8 +140,8 @@ namespace Sanitizer
             }
 
             // Replace functions that should be constants with their respective values
-            long double val{Number::getConstant(currFunc->name)};
-            if (!val)
+            auto [isConstant, val] = Number::getConstant(currFunc->name);
+            if (!isConstant)
                 continue;
             delete tokens[i];
             tokens[i] = new Number{val};
@@ -135,7 +161,6 @@ namespace Sanitizer
                     std::cout << "Error: Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i - 1])->name << currOp->symbol << "'\n";
                     return -1;
                 }
-                // continue;
             }
         }
         return 0;
@@ -167,7 +192,14 @@ namespace Sanitizer
 
         // TODO: combine and apply +-'s
         // combineSigns(); (maybe Operator::)
-        // applySigns();
+        Operator::combineSigns(tokens);
+        // Ensure signs were combined properly
+        Printer::printParsed(tokens, "Signs Combined");
+
+        Operator::applySigns(tokens);
+        // Ensure signs were applied properly
+        Printer::printParsed(tokens, "Signs Applied");
+
         // OR:
         // handleSigns(); (collective of both)
         // TODO: handle ^# and arc, a, and h
@@ -176,6 +208,8 @@ namespace Sanitizer
         // applyUserConstants(); (maybe Number::)
         // TODO: convert ! to fact()
         // applyFact(); (maybe Function:: or Operator::)
+
+        // TODO: IMPORTANT - I will actually need to handle ^# earlier than where it is currently place, otherwise wrapping functions like neg() or fact() won't work properly; also, I'll need to wrap parenthesis around the function and the ^# so that something like -sin^3pi => neg((sin(pi)^3)) [without surrounding sin...^... with parenthesis, the neg() function would wrap around the wrong thing (unless I choose to handle it)]
 
 
         // This check might be useless at this point due to me already handling ^'s after functions, unless I were to change this (also might want to move ! handling to after this)

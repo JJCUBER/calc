@@ -4,19 +4,73 @@
 #include <cmath>
 
 #include "Function.h"
+#include "Number.h"
 
-void Function::Trie::insert(const std::string& s, int nPos, int len)
+// const std::string Function::functionNames[]{"arc", "a", "h", "sin", "cos", "tan", "csc", "sec", "cot", "floor", "ceil", "mod", "fact", "exp", "ln", "log", "sqrt", "cbrt", "neg"};
+const std::string Function::functionNames[10]{"floor", "ceil", "mod", "fact", "exp", "ln", "log", "sqrt", "cbrt", "neg"};
+const std::string Function::trigNames[6]{"sin", "cos", "tan", "csc", "sec", "cot"};
+Function::Trie Function::trie{true};
+
+
+void Function::Trie::advance(Trie*& curr, int offset)
+{
+    Trie*& next{curr->children[offset]};
+    if (!next)
+        next = new Trie{};
+    curr = next;
+}
+
+bool Function::Trie::find(const std::string& s)
 {
     Trie* curr{this};
     for (char c : s)
     {
-        Trie*& next{curr->children[c - 'a']};
-        if (!next)
-            next = new Trie{};
-        curr = next;
+        curr = curr->children[c - 'a'];
+        if (!curr)
+            return false;
     }
-    curr->nPos = nPos;
-    curr->len = len;
+    return curr->len;
+}
+
+Function::Trie* Function::Trie::insert(const std::string& s, bool shouldMarkAsEnd)
+{
+    Trie* curr{this};
+    for (char c : s)
+        advance(curr, c - 'a');
+    if(shouldMarkAsEnd)
+        curr->len = s.size();
+    return curr;
+}
+
+// Inserts all variants of a trig function concurrently, preventing iterating over parts multiple times, almost like unrolling a for loop in some aspects (ex [sin]: sin, asin, arcsin, sinh, asinh, arcsinh)
+// Adding all variants of each trig function does make the trie larger and slower to traverse, but simplifies many aspects of the code tremendously, making it potentially just as fast
+void Function::Trie::insertTrigFunction(const std::string& s)
+{
+    int len(s.size());
+    Trie *base{this}, *a{insert("a", false)}, *arc{insert("arc", false)};
+
+    auto groupAdvance = [&](char c)
+    {
+        int offset{c - 'a'};
+        advance(base, offset);
+        advance(a, offset);
+        advance(arc, offset);
+    };
+
+    auto assign = [&]()
+    {
+        base->len = len;
+        a->len = len + 1;
+        arc->len = len + 3;
+    };
+
+    for (char c : s)
+        groupAdvance(c);
+    assign();
+
+    groupAdvance('h');
+    len++;
+    assign();
 }
 
 void Function::Trie::findAllWords(const std::string& s, int pos, int size, std::vector<Substr>& output) const
@@ -28,8 +82,8 @@ void Function::Trie::findAllWords(const std::string& s, int pos, int size, std::
         curr = curr->children[s[pos++] - 'a'];
         if (!curr)
             break;
-        if (curr->nPos != -1)
-            output.emplace_back(iPos, curr->nPos, curr->len);
+        if (curr->len)
+            output.emplace_back(iPos, curr->len);
     }
 }
 
@@ -50,7 +104,7 @@ int Function::Trie::remove(const std::string& s)
         if (!toRemove && prev)
             // I HAVE to get the address this way, otherwise I would be getting the address of my local pointer curr/tmp and setting that to nullptr instead of the actual child pointer
             toRemove = &prev->children[prevOffset];
-        if (i != size - 1 && curr->nPos != -1)
+        if (i != size - 1 && curr->len)
         {
             toRemove = nullptr;
             prev = curr;
@@ -71,20 +125,18 @@ int Function::Trie::remove(const std::string& s)
         curr = next;
     }
 
-    if (curr->nPos == -1)
+    if (!curr->len)
         return -1;
 
-    curr->nPos = -1;
+    curr->len = 0;
 
     if (!toRemove)
-        // curr->nPos = -1;
         return 0;
 
     for (int i = 0; i < 26; i++)
     {
         if (!curr->children[i])
             continue;
-        // curr->nPos = -1;
         return 0;
     }
 
@@ -96,12 +148,6 @@ int Function::Trie::remove(const std::string& s)
 
 int Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
 {
-    // Might also want to add "a" as a shorthand for "arc"
-    static const std::string names[]{"e", "pi", "phi", "arc", "a", "h", "sin", "cos", "tan", "csc", "sec", "cot", "floor", "ceil", "mod", "fact", "exp", "ln", "log", "sqrt", "cbrt"};
-    // Will have to do this differently, as I will need to be able to add and remove custom constants from this trie (unless I decide to make another trie for the custom constants?  Probably not though)
-    static const Trie trie{names};
-    // static Trie trie{names};
-
     const std::string input{((Function*)tokens[pos])->name};
 
     std::vector<Substr> occurrences;
@@ -153,17 +199,14 @@ int Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
         last += it->len;
 
         tokens.insert(tokens.begin() + pos++, new Function{input.substr(it->iPos, it->len)});
-        /* Probably want to do this separately after the fact, as I currently modify the original Function* passed in; it would be cleaner to replace functions with numbers if need-be in calc.cpp
-        std::string funcName = input.substr(it->iPos, it->len);
-        tokens.insert(tokens.begin() + pos++, Number::isConstant(funcName) ? (Token*)new Number{Number::getConstant(funcName)} : new Function{funcName});
-        */
     }
 
     return last != input.size() ? printErrorFailedToSeparate() : 0;
 }
 
-long double Function::runFunc(long double n) const
+long double Function::runFunc(long double n, bool& out_IsTrigFunc) const
 {
+    out_IsTrigFunc = true;
     if (name == "sin")
         return std::sin(n);
     if (name == "cos")
@@ -216,6 +259,8 @@ long double Function::runFunc(long double n) const
     if (name == "arccoth" || name == "acoth")
         return std::atanh(1.0L / n);
 
+    out_IsTrigFunc = false;
+
     if (name == "floor")
         return std::floor(n);
     if (name == "ceil")
@@ -237,28 +282,8 @@ long double Function::runFunc(long double n) const
     if (name == "cbrt")
         return std::cbrt(n);
 
+    if (name == "neg")
+        return -n;
+
     // return 0;
-}
-
-void Function::testTrieRemoval()
-{
-    // static Trie t{};
-
-    // t.insert("apple", 1, 1);
-    // t.insert("app", 1, 1);
-    // std::cout << t.remove("app") << '\n';
-    // std::cout << t.remove("apple") << '\n';
-
-
-    // t.insert("apple", 1, 1);
-    // t.insert("able", 1, 1);
-    // std::cout << t.remove("apple") << '\n';
-    // std::cout << t.remove("able") << '\n';
-
-
-    // t.insert("apple", 1, 1);
-    // t.insert("banana", 1, 1);
-    // std::cout << t.remove("apple") << '\n';
-    // std::cout << t.remove("banana") << '\n';
-    // std::cout << t.remove("ban") << '\n';
 }

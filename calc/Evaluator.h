@@ -49,8 +49,16 @@ namespace Evaluator
             if (depth)
             {
                 if (hasOffset)
+                {
+                    Function* func{(Function*)tokens[pos]};
                     // std::cout << "evaluate(tokens, " << pos + 2 << ", " << len - 3 << ")\n";
-                    return ((Function*)tokens[pos])->runFunc(evaluate(tokens, pos + 2, len - 3));
+                    // long double result{func->runFunc(evaluate(tokens, pos + 2, len - 3))};
+                    bool isTrigFunc;
+                    long double result{func->runFunc(evaluate(tokens, pos + 2, len - 3), isTrigFunc)};
+                    // return isTrigFunc && std::abs(result) < 1E-12L ? 0.0L : result;
+                    // This is probably better than what I was originally doing so as to help with stuff like sin(pi) being slightly off, but doesn't allow something like sin(0.00000000000000001) to be 100% accurate, instead being changed to 0
+                    return isTrigFunc && std::abs(result) <= std::numeric_limits<long double>::epsilon() ? 0.0L : result;
+                }
                 // std::cout << "evaluate(tokens, " << pos + 1 << ", " << len - 2 << ")\n";
                 return evaluate(tokens, pos + 1, len - 2);
             }
@@ -75,10 +83,10 @@ namespace Evaluator
                 continue;
 
             // Update stored operator information if it has lower precedence (order of operations) than the current
-            Operator* op{(Operator*)tokens[i]};
-            if (op->orderOfOp >= minOrderOfOp)
+            int currOrderOfOp{(int)((Operator*)tokens[i])->orderOfOp};
+            if (currOrderOfOp >= minOrderOfOp)
                 continue;
-            minOrderOfOp = op->orderOfOp;
+            minOrderOfOp = currOrderOfOp;
             opPos = i;
         }
 

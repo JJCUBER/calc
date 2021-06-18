@@ -1,4 +1,7 @@
 /.vs/
 /out/
 /exclude/
-tests.bat
+
+/tests-debug.bat
+/tests-release.bat
+/Folder.DotSettings.user
