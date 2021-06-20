@@ -5,7 +5,7 @@
 #include "Function.h"
 #include "Operator.h"
 
-int Grouping::addMissingFunctionGroupings(std::vector<Token*>& tokens)
+bool Grouping::addMissingFunctionGroupings(std::vector<Token*>& tokens)
 {
     // TODO: It would be more optimal to go from left to right since this is doing insertions, but the code currently relies on functions to the right already having their groupings so as to make it easier to wrap around it
 
@@ -24,7 +24,7 @@ int Grouping::addMissingFunctionGroupings(std::vector<Token*>& tokens)
             if (((Grouping*)tokens[i + 1])->isOpen)
                 break;
             std::cout << "Error: Malformed Input - input has a closing grouping directly after a function: '" << ((Function*)tokens[i])->name << "'\n";
-            return -1;
+            return false;
         case TokenType::Function:
             tokens.insert(tokens.begin() + ++i, new Grouping{'('});
             for (int j = i + 1; j < tokens.size(); j++)
@@ -45,12 +45,12 @@ int Grouping::addMissingFunctionGroupings(std::vector<Token*>& tokens)
             // I could also check for this in 'checkForMalformedInput(),' making it get caught earlier (as in having '[func]_[op]'), but I would need to exclude the case of '[func]_^' and either handle it here or earlier
             // Handle default (its an operator [which is invalid]; cout error)
             std::cout << "Error: UNCAUGHT Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i])->name << ((Operator*)tokens[i + 1])->symbol << "'\n";
-            return -1;
+            return false;
         }
     }
 
 
-    return 0;
+    return true;
 }
 
 void Grouping::addMissingOuterGroupings(std::vector<Token*>& tokens)

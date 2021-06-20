@@ -14,8 +14,8 @@
 
 
 std::string getInput(int argc, char* argv[]);
-int enterMultipleEquationsMode();
-int calculate(std::string& equation);
+void enterMultipleEquationsMode();
+bool calculate(std::string& equation);
 
 int main(int argc, char* argv[])
 {
@@ -30,9 +30,12 @@ int main(int argc, char* argv[])
 #endif
 
     if (equation.empty())
-        return enterMultipleEquationsMode();
+    {
+        enterMultipleEquationsMode();
+        return 0;
+    }
 
-    return calculate(equation);
+    return calculate(equation) - 1;
 }
 
 std::string getInput(int argc, char* argv[])
@@ -46,7 +49,7 @@ std::string getInput(int argc, char* argv[])
     return equation;
 }
 
-int enterMultipleEquationsMode()
+void enterMultipleEquationsMode()
 {
     std::cout << "Entering Multiple Equations Mode.  Type exit/quit to leave this mode.\n";
     bool isDone{};
@@ -62,17 +65,17 @@ int enterMultipleEquationsMode()
         else
             calculate(equation);
     }
-    return 0;
 }
 
-int calculate(std::string& equation)
+bool calculate(std::string& equation)
 {
     // Ensure there is an input/equation
     if (equation.empty())
     {
         // Instead of giving the user an error when there are no arguments, I might want to go into a mode where multiple equations can be input separately until the user is done.  With this, I could also add syntax for "[A-Za-z] = ..." (storing results into variables), along with a special keyword for the previous output, like "prev" (there are probably better ones).
+        // TODO: This cout doesn't make sense while in multiple equations mode
         std::cout << "Missing equation - proper format: 'calc \"{equation}\"'\n";
-        return 0;
+        return false;
     }
 
 
@@ -95,8 +98,8 @@ int calculate(std::string& equation)
     // Printing to ensure that Custom constant creation is being handled correctly
     Printer::printParsed(tokens, "Custom Constant Creation Handled ('[variable name] = ' Removed from Start of Equation if Relevant)");
 
-    if (Operator::ensureProperDoubleOperators(tokens))
-        return -1;
+    if (!Operator::ensureProperDoubleOperators(tokens))
+        return false;
 
     // Operator::replaceEquals(tokens);
     Operator::replaceDoubleOperators(tokens);
@@ -108,14 +111,14 @@ int calculate(std::string& equation)
     // [Malformed Input Checks]
 
     // HAD to move part of these checks to occur after splitting functions, otherwise replacing functions with constants where relevant would happen AFTER the checks which would lead to problems like e*1 being invalid (it thinks that e should be a function at that point)
-    if (Sanitizer::checkForEarlyMalformedInput(tokens))
-        return -1;
+    if (!Sanitizer::checkForEarlyMalformedInput(tokens))
+        return false;
 
 
     // [Equation Sanitization] (might want to use a different word, like Cleaner or Reinterpreter; also, might want to do these in a different order)
 
-    if (Sanitizer::sanitizeEquation(tokens))
-        return -1;
+    if (!Sanitizer::sanitizeEquation(tokens))
+        return false;
 
 
     // [Equation Evaluation]
@@ -141,5 +144,5 @@ int calculate(std::string& equation)
     for (int i = 0; i < tokens.size(); i++)
         delete tokens[i];
 
-    return 0;
+    return true;
 }

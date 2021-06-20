@@ -13,7 +13,8 @@
 
 namespace Sanitizer
 {
-    inline int checkForEarlyMalformedInput(const std::vector<Token*>& tokens)
+    // The returns of this might seem like the opposite of what makes sense, but it is consistent with how I'm doing returns for everything (true for everything being successful and being able to continue through the code, false for something being wrong like malformed input and needing to stop)
+    inline bool checkForEarlyMalformedInput(const std::vector<Token*>& tokens)
     {
         /* Don't think I need this, as I have support for ==
         // Has any '=' remaining ('=' in the right spot has already been handled and removed from the vector, the remainder are invalid)
@@ -22,7 +23,7 @@ namespace Sanitizer
             if (tokens[i]->tokenType != Token::TokenType::Operator || ((Operator*)tokens[i])->orderOfOp != Operator::OrderOfOpType::Equal)
                 continue;
             std::cout << "Error: Malformed Input - input has an '=' in an invalid spot of the equation; proper format is '[constant name] = [equation]'\n";
-            return -1;
+            return false;
         }
         */
 
@@ -33,7 +34,7 @@ namespace Sanitizer
             if (op->orderOfOp != Operator::OrderOfOpType::AddSubtract)
             {
                 std::cout << "Error: Malformed Input - input starts with an operator (or unknown symbol) other than '+' or '-': '" << op->symbol << "'\n";
-                return -1;
+                return false;
             }
         }
 
@@ -44,7 +45,7 @@ namespace Sanitizer
             if (op->symbol != '!')
             {
                 std::cout << "Error: Malformed Input - input ends with an operator (or unknown symbol) other than '!': '" << op->symbol << "'\n";
-                return -1;
+                return false;
             }
         }
 
@@ -55,7 +56,7 @@ namespace Sanitizer
             if (tokens[i]->tokenType == Token::TokenType::Number && tokens[i - 1]->tokenType == Token::TokenType::Number)
             {
                 std::cout << "Error: Malformed Input - input has consecutive numbers: '" << ((Number*)tokens[i - 1])->n << "' '" << ((Number*)tokens[i])->n << "'\n";
-                return -1;
+                return false;
             }
 
             // Might want to add handling of consecutive operators here for stuff like '5*-4,' '5++4,' '5--4,' '5---4,' etc. (might want to warn about extra +'s and -'s)
@@ -69,7 +70,7 @@ namespace Sanitizer
                 if (prevOp->orderOfOp == Operator::OrderOfOpType::Unknown)
                 {
                     std::cout << "Error: Malformed Input - input has an unknown operator/symbol: '" << prevOp->symbol << "'\n";
-                    return -1;
+                    return false;
                 }
 
                 // Consecutive operators other than ![_] or [_][+-]
@@ -79,7 +80,7 @@ namespace Sanitizer
                     if (prevOp->orderOfOp != Operator::OrderOfOpType::Factorial && currOp->orderOfOp != Operator::OrderOfOpType::AddSubtract)
                     {
                         std::cout << "Error: Malformed Input - input has consecutive operators other than '![_]' or '[_][+-]': '" << prevOp->symbol << currOp->symbol << "'\n";
-                        return -1;
+                        return false;
                     }
                     continue;
                 }
@@ -97,7 +98,7 @@ namespace Sanitizer
                         if(currOp->orderOfOp != Operator::OrderOfOpType::AddSubtract)
                         {
                             std::cout << "Error: Malformed Input - input has an operator directly after a grouping other than '+' or '-': '" << prevGrouping->symbol << currOp->symbol << "'\n";
-                            return -1;
+                            return false;
                         }
                     }
 
@@ -105,7 +106,7 @@ namespace Sanitizer
                     if (tokens[i]->tokenType == Token::TokenType::Grouping && !((Grouping*)tokens[i])->isOpen)
                     {
                         std::cout << "Error: Malformed Input - input has a set of groupings with nothing inside: '()'\n";
-                        return -1;
+                        return false;
                     }
                 }
             }
@@ -114,11 +115,11 @@ namespace Sanitizer
                      tokens[i - 1]->tokenType == Token::TokenType::Operator && ((Operator*)tokens[i - 1])->symbol != '!')
             {
                 std::cout << "Error: Malformed Input - input has an operator other than '!' directly before a grouping: '" << ((Operator*)tokens[i - 1])->symbol << ((Grouping*)tokens[i])->symbol << "'\n";
-                return -1;
+                return false;
             }
         }
 
-        return 0;
+        return true;
     }
 
     // TODO: Might want to move this to Number:: or Operator::?
@@ -148,7 +149,7 @@ namespace Sanitizer
         }
     }
 
-    inline int checkForLaterMalformedInput(const std::vector<Token*>& tokens)
+    inline bool checkForLaterMalformedInput(const std::vector<Token*>& tokens)
     {
         for (int i = 1; i < tokens.size(); i++)
         {
@@ -159,14 +160,14 @@ namespace Sanitizer
                 if (currOp->symbol != '^')
                 {
                     std::cout << "Error: Malformed Input - input has an operator other than '^' directly after a function: '" << ((Function*)tokens[i - 1])->name << currOp->symbol << "'\n";
-                    return -1;
+                    return false;
                 }
             }
         }
-        return 0;
+        return true;
     }
 
-    inline int sanitizeEquation(std::vector<Token*>& tokens)
+    inline bool sanitizeEquation(std::vector<Token*>& tokens)
     {
         // 1) parse function names and constants (if they aren't recognized, give the user an error and return)
         //   - this includes seeing if arc comes right before a trig function or h comes right after, should probably also handle ^-1 for trig functions and convert ^n or ^(n...) to some sort of function if it is being applied to a function
@@ -175,8 +176,8 @@ namespace Sanitizer
         {
             if (tokens[i]->tokenType != Token::TokenType::Function)
                 continue;
-            if (Function::splitFunctions(tokens, i))
-                return -1;
+            if (!Function::splitFunctions(tokens, i))
+                return false;
         }
 
         // Ensure functions were split properly
@@ -215,14 +216,14 @@ namespace Sanitizer
         // This check might be useless at this point due to me already handling ^'s after functions, unless I were to change this (also might want to move ! handling to after this)
 
         // HAVE to do this AFTER splitting functions and replacing functions with constants where relevant
-        if (checkForLaterMalformedInput(tokens))
-            return -1;
+        if (!checkForLaterMalformedInput(tokens))
+            return false;
 
 
 
         // TODO: I need to be handling the syntax '[func]^[n]([m])' either before this function gets called, or alongside/inside of it!
-        if (Grouping::addMissingFunctionGroupings(tokens))
-            return -1;
+        if (!Grouping::addMissingFunctionGroupings(tokens))
+            return false;
 
         // Ensure function groupings were added properly
         Printer::printParsed(tokens, "Function Groupings Added");
@@ -255,6 +256,6 @@ namespace Sanitizer
         // Ensure outer Groupings were added properly
         Printer::printParsed(tokens, "Outer Groupings Added");
 
-        return 0;
+        return true;
     }
 }

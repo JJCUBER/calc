@@ -141,7 +141,7 @@ void Operator::applySigns(std::vector<Token*>& tokens)
     }
 }
 
-int Operator::ensureProperDoubleOperators(std::vector<Token*>& tokens)
+bool Operator::ensureProperDoubleOperators(std::vector<Token*>& tokens)
 {
     // scan for any lone equals/ands/ors
     for (int i = 1; i < tokens.size() - 1; i++)
@@ -162,9 +162,9 @@ int Operator::ensureProperDoubleOperators(std::vector<Token*>& tokens)
             continue;
 
         std::cout << "Error: Malformed Input - input contains only one of a symbol that requires itself to be repeated twice: '" << currOp->symbol << "' (expected something of the format '" << std::string(2, currOp->symbol) << "')\n";
-        return -1;
+        return false;
     }
-    return 0;
+    return true;
 }
 
 // void Operator::replaceEquals(std::vector<Token*>& tokens)

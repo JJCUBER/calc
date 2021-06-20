@@ -11,6 +11,6 @@ struct Grouping : Token
 
     Grouping(char symbol) : Token{TokenType::Grouping}, symbol{symbol}, isOpen{symbol == '('} {}
 
-    static int addMissingFunctionGroupings(std::vector<Token*>& tokens);
+    static bool addMissingFunctionGroupings(std::vector<Token*>& tokens);
     static void addMissingOuterGroupings(std::vector<Token*>& tokens);
 };

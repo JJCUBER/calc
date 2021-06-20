@@ -16,7 +16,7 @@ struct Number : Token
     Number(long double n) : Token{TokenType::Number}, n{n} {}
 
     static std::pair<bool, long double> getConstant(const std::string& s);
-    static int tryAddCustomConstant(const std::string& s, long double n);
-    static int tryRemoveCustomConstant(const std::string& s);
+    static bool tryAddCustomConstant(const std::string& s, long double n);
+    static bool tryRemoveCustomConstant(const std::string& s);
     static std::string handleCustomConstantCreation(std::vector<Token*>& tokens);
 };

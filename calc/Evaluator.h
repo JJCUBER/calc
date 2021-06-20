@@ -32,11 +32,6 @@ namespace Evaluator
         // Don't need to check that the first is an open grouping and the second is a close grouping, as this should already be ensured by checks and the way that "sectors" are passed to this recursive function; an unmatched set of groupings can never make it here
         if (tokens[pos + hasOffset]->tokenType == Token::TokenType::Grouping && tokens[pos + len - 1]->tokenType == Token::TokenType::Grouping)
         {
-            // Empty groupings "()"; doesn't take into account "[func]()," but I don't think that a function with no parameter can get to here (should log an error earlier on)
-            // In fact, I should actually make it so that this isn't valid input (having groupings directly after each other like this "()")
-            // if (len == 2)
-                // return 0;
-
             for (int i = pos + len - 1; i >= pos + 1 + hasOffset; i--)
             {
                 if (tokens[i]->tokenType != Token::TokenType::Grouping)

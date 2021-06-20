@@ -87,8 +87,7 @@ void Function::Trie::findAllWords(const std::string& s, int pos, int size, std::
     }
 }
 
-// TODO: I should really fix all of this weird return -1 stuff that I have done to many of my functions.  Instead, they should return a bool (true should probably be successful, with false being failed)
-int Function::Trie::remove(const std::string& s)
+bool Function::Trie::remove(const std::string& s)
 {
     // toRemove is a ** because I need to be able to delete and set the Trie* to nullptr, while still being able to change what toRemove points to
     Trie **toRemove{}, *curr{this}, *prev{};
@@ -100,7 +99,7 @@ int Function::Trie::remove(const std::string& s)
         int offset{s[i] - 'a'};
         Trie* next{curr->children[offset]};
         if (!next)
-            return -1;
+            return false;
         if (!toRemove && prev)
             // I HAVE to get the address this way, otherwise I would be getting the address of my local pointer curr/tmp and setting that to nullptr instead of the actual child pointer
             toRemove = &prev->children[prevOffset];
@@ -126,27 +125,27 @@ int Function::Trie::remove(const std::string& s)
     }
 
     if (!curr->len)
-        return -1;
+        return false;
 
     curr->len = 0;
 
     if (!toRemove)
-        return 0;
+        return true;
 
     for (int i = 0; i < 26; i++)
     {
         if (!curr->children[i])
             continue;
-        return 0;
+        return true;
     }
 
     delete *toRemove;
     *toRemove = nullptr;
-    return 0;
+    return true;
 }
 
 
-int Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
+bool Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
 {
     const std::string input{((Function*)tokens[pos])->name};
 
@@ -158,7 +157,7 @@ int Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
     if (occurrences.empty())
     {
         std::cout << "Error: Malformed Input - no functions were found in '" << input << "'\n";
-        return -1;
+        return false;
     }
 
     std::sort(occurrences.rbegin(), occurrences.rend(), [](const Substr& s1, const Substr& s2) { return s1.len == s2.len ? s1.iPos < s2.iPos : s1.len < s2.len; });
@@ -183,7 +182,7 @@ int Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
     auto printErrorFailedToSeparate = [&]()
     {
         std::cout << "Error: Malformed Input - not everything was able to be parsed into separate functions in '" << input << "'\n";
-        return -1;
+        return false;
     };
 
     auto it{orderedFunctions.begin()};
@@ -201,7 +200,7 @@ int Function::splitFunctions(std::vector<Token*>& tokens, int& pos)
         tokens.insert(tokens.begin() + pos++, new Function{input.substr(it->iPos, it->len)});
     }
 
-    return last != input.size() ? printErrorFailedToSeparate() : 0;
+    return last != input.size() ? printErrorFailedToSeparate() : true;
 }
 
 long double Function::runFunc(long double n, bool& out_IsTrigFunc) const

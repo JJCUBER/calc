@@ -19,7 +19,7 @@ struct Operator : Token
     static void combineSigns(std::vector<Token*>& tokens);
     static void applySigns(std::vector<Token*>& tokens);
     // static void replaceEquals(std::vector<Token*>& tokens);
-    static int ensureProperDoubleOperators(std::vector<Token*>& tokens);
+    static bool ensureProperDoubleOperators(std::vector<Token*>& tokens);
     static void replaceDoubleOperators(std::vector<Token*>& tokens);
 
     void changeOperator(char symbol, OrderOfOpType orderOfOp = OrderOfOpType::Unknown);

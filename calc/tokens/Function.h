@@ -51,7 +51,7 @@ class Function : public Token
         Trie* insert(const std::string& s, bool shouldMarkAsEnd = true);
         void insertTrigFunction(const std::string& s);
         void findAllWords(const std::string& s, int pos, int size, std::vector<Substr>& output) const;
-        int remove(const std::string& s);
+        bool remove(const std::string& s);
     };
 public:
     // Maybe I should name this names instead, as it is in Function::
@@ -63,7 +63,7 @@ public:
 
     Function(std::string name) : Token{TokenType::Function}, name{std::move(name)} {}
 
-    static int splitFunctions(std::vector<Token*>& tokens, int& pos);
+    static bool splitFunctions(std::vector<Token*>& tokens, int& pos);
 
     long double runFunc(long double n, bool& out_IsTrigFunc) const;
 };
